@@ -12,7 +12,8 @@ function load() {
   return withDefaults({ tasks: [], habits: [] });
 }
 function withDefaults(s) {
-  s.profile = { name: '', identity: '', goals: '', bio: '', tone: 'friend', from: 9, to: 21, apiKey: '', saved: false, ...s.profile };
+  s.profile = { name: '', identity: '', goals: '', bio: '', tone: 'friend', from: 9, to: 21, apiKey: '', saved: false,
+    interview: [], bioLocked: false, bioDate: 0, ivDraft: [], ...s.profile };
   s.moti = { current: null, hidden: false, lastSlot: 0, queue: [], history: [], ...s.moti };
   return s;
 }
@@ -436,6 +437,15 @@ function templateMessage() {
     `«${goal}» — сама собой цель не случится. Но ты, ${n}, случишься с ней.`,
     `Каждый раз, когда хочется сдаться, вспомни: «${goal}». Ты к этому ближе, чем кажется.`,
   );
+  const ans = i => {
+    const a = (P.interview.find(p => p.q === IV_QUESTIONS[i]) || {}).a || '';
+    return a && a.length <= 140 ? a.trim().replace(/^[«"“]+|[»"”]+$/g, '').replace(/[.!…\s]+$/, '') : '';
+  };
+  const low = t => t.charAt(0).toLowerCase() + t.slice(1);
+  if (ans(5)) lines.push(`${n}, помни, ради чего всё это: ${low(ans(5))}.`);
+  if (ans(3)) lines.push(`${n}, вспомни, чем ты гордишься: ${low(ans(3))}. Сегодня будет ещё один повод.`);
+  if (ans(9)) lines.push(`Твои же слова, ${n}: «${ans(9)}».`);
+  if (ans(8)) lines.push(`«${ans(8)}» — ты сам(а) выбрал(а) эти слова. Живи по ним сегодня.`);
   if (P.tone === 'coach') lines.push(
     `${n}, хватит думать. Вставай и делай. Вечером отчитаешься себе.`,
     `Никто не придёт и не сделает это за тебя, ${n}. Вперёд.`,
@@ -464,7 +474,7 @@ async function aiMessages(count) {
     P.name && `Имя: ${P.name}`,
     P.identity && `Кто это в двух словах: ${P.identity}`,
     goalsList().length && `Цели:\n${goalsList().map(g => '- ' + g).join('\n')}`,
-    P.bio && `Биография:\n${P.bio}`,
+    P.bioLocked && P.bio && `Интервью с этим человеком (его собственные слова):\n${P.bio}`,
   ].filter(Boolean).join('\n\n');
   const res = await client.beta.messages.create({
     model: 'claude-opus-5-5',
@@ -572,10 +582,11 @@ $('#moti-close').addEventListener('click', () => { M.hidden = true; save(); rend
 const meForm = $('#me-form');
 
 function renderMe() {
-  for (const k of ['name', 'identity', 'goals', 'bio', 'tone', 'from', 'to', 'apiKey']) {
+  for (const k of ['name', 'identity', 'goals', 'tone', 'from', 'to', 'apiKey']) {
     if (document.activeElement !== meForm[k]) meForm[k].value = P[k];
   }
   if (P.apiKey) $('#ai-box').open = true;
+  renderBio();
   slotsHint();
   $('#moti-history').innerHTML = M.history.map(h =>
     `<li><span class="h-when">${humanDue(h.at)}${h.liked ? ' · ❤️' : ''}</span><span>${esc(h.text)}</span></li>`).join('');
@@ -594,13 +605,13 @@ meForm.to.addEventListener('input', slotsHint);
 meForm.addEventListener('submit', e => {
   e.preventDefault();
   const first = !P.saved;
-  const before = JSON.stringify([P.name, P.identity, P.goals, P.bio, P.tone]);
-  for (const k of ['name', 'identity', 'goals', 'bio', 'tone', 'apiKey']) P[k] = meForm[k].value.trim();
+  const before = JSON.stringify([P.name, P.identity, P.goals, P.tone]);
+  for (const k of ['name', 'identity', 'goals', 'tone', 'apiKey']) P[k] = meForm[k].value.trim();
   P.from = +meForm.from.value || 0;
   P.to = +meForm.to.value || 0;
   P.saved = true;
   // Сообщения в очереди написаны под старую биографию — выбрасываем
-  if (before !== JSON.stringify([P.name, P.identity, P.goals, P.bio, P.tone])) M.queue = [];
+  if (before !== JSON.stringify([P.name, P.identity, P.goals, P.tone])) M.queue = [];
   M.lastSlot = currentSlot();
   save();
   document.activeElement.blur();
@@ -647,6 +658,103 @@ $('#moti-cal').addEventListener('click', async () => {
     'END:VEVENT\r\n').join('');
   downloadIcs('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Dela//RU\r\nX-WR-CALNAME:Мотивация\r\n' + events + 'END:VCALENDAR\r\n', 'motivaciya.ics');
 });
+
+// --- Интервью (биография): записывается один раз и больше не меняется ---
+const IV_QUESTIONS = [
+  'Расскажи, кто ты сейчас? Как тебя зовут, сколько тебе лет, чем ты занимаешься?',
+  'Откуда ты? Где прошло твоё детство и каким ребёнком ты был(а)?',
+  'Через что тебе пришлось пройти? Какой момент в жизни был самым тяжёлым?',
+  'Чем ты гордишься больше всего?',
+  'Что тебя по-настоящему зажигает?',
+  'Ради кого или ради чего ты всё это делаешь?',
+  'Где ты видишь себя через год? А через пять лет?',
+  'Когда у тебя опускаются руки? Что тебе мешает?',
+  'Какие слова тебя цепляют? Есть фраза или совет, которые ты помнишь всю жизнь?',
+  'Что ты скажешь себе в самый трудный день?',
+];
+const ivDlg = $('#iv-dlg');
+let ivStep = 0;
+
+function renderBio() {
+  const box = $('#bio-box');
+  if (P.bioLocked) {
+    box.innerHTML = `<div class="bio-locked">
+      <div class="lock">🔒 Записано ${fmtDay.format(new Date(P.bioDate))} ${new Date(P.bioDate).getFullYear()} — навсегда</div>
+      ${interviewHtml(P.interview)}</div>`;
+  } else {
+    const started = P.ivDraft.some(Boolean);
+    box.innerHTML = `<button type="button" class="bio-start" id="bio-start">
+      <b>🎙 ${started ? 'Продолжить интервью' : 'Пройти интервью'}</b>
+      <span>${IV_QUESTIONS.length} вопросов о тебе. Интервью записывается один раз — потом его нельзя изменить.</span></button>`;
+    $('#bio-start').addEventListener('click', () => openInterview());
+  }
+}
+
+const interviewHtml = list => list.map(p =>
+  `<div class="iv-pair"><div class="q">— ${esc(p.q)}</div><div class="a">— ${esc(p.a)}</div></div>`).join('');
+
+function interviewPairs() {
+  return IV_QUESTIONS.map((q, i) => ({ q, a: (P.ivDraft[i] || '').trim() })).filter(p => p.a);
+}
+
+function openInterview() {
+  if (P.bioLocked) return;
+  const last = P.ivDraft.reduce((m, a, i) => (a && a.trim() ? i : m), -1);
+  ivStep = Math.min(last + 1, IV_QUESTIONS.length - 1);
+  showStep();
+  ivDlg.showModal();
+}
+
+function keepAnswer() {
+  if (ivStep < IV_QUESTIONS.length) {
+    P.ivDraft[ivStep] = $('#iv-a').value;
+    save();
+  }
+}
+
+function showStep() {
+  const total = IV_QUESTIONS.length;
+  const final = ivStep >= total;
+  $('#iv-step').textContent = final ? 'Твоё интервью' : `Вопрос ${ivStep + 1} из ${total}`;
+  $('#iv-progress').style.width = (Math.min(ivStep, total) / total * 100) + '%';
+  $('#iv-q').textContent = final ? 'Всё верно?' : IV_QUESTIONS[ivStep];
+  $('#iv-a').hidden = final;
+  $('#iv-preview').hidden = !final;
+  $('#iv-warn').hidden = !final;
+  $('#iv-back').hidden = ivStep === 0;
+  if (final) {
+    const pairs = interviewPairs();
+    $('#iv-preview').innerHTML = pairs.length ? interviewHtml(pairs) : '<p class="hint">Ты не ответил(а) ни на один вопрос.</p>';
+    $('#iv-next').textContent = '🔒 Записать навсегда';
+    $('#iv-next').disabled = !pairs.length;
+  } else {
+    $('#iv-a').value = P.ivDraft[ivStep] || '';
+    $('#iv-next').disabled = false;
+    nextLabel();
+    setTimeout(() => $('#iv-a').focus(), 50);
+  }
+}
+
+function nextLabel() {
+  $('#iv-next').textContent = !$('#iv-a').value.trim() ? 'Пропустить' : ivStep === IV_QUESTIONS.length - 1 ? 'Готово' : 'Далее';
+}
+$('#iv-a').addEventListener('input', nextLabel);
+$('#iv-back').addEventListener('click', () => { keepAnswer(); ivStep--; showStep(); });
+$('#iv-next').addEventListener('click', () => {
+  if (ivStep < IV_QUESTIONS.length) { keepAnswer(); ivStep++; showStep(); return; }
+  if (!confirm('Записать интервью навсегда? Изменить его потом будет нельзя.')) return;
+  P.interview = interviewPairs();
+  P.bio = P.interview.map(p => `— ${p.q}\n— ${p.a}`).join('\n\n');
+  P.bioLocked = true;
+  P.bioDate = Date.now();
+  P.ivDraft = [];
+  M.queue = [];
+  save();
+  ivDlg.close();
+  renderBio();
+  toast('Интервью записано 🔒');
+});
+ivDlg.addEventListener('close', () => { keepAnswer(); renderBio(); });
 
 // ---------- Старт ----------
 function render() {

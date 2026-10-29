@@ -60,9 +60,9 @@
         <label class="field">Твои цели (каждая с новой строки)
           <textarea name="goals" rows="3" placeholder="Запустить свой бизнес&#10;Пробежать марафон"></textarea>
         </label>
-        <label class="field">Биография
-          <textarea name="bio" rows="7" placeholder="Откуда ты, через что прошёл, чем гордишься, что тебя зажигает, ради кого всё это…"></textarea>
-        </label>
+        <div class="field">Биография
+          <div id="bio-box"></div>
+        </div>
         <label class="field">Тон сообщений
           <select name="tone">
             <option value="friend">Друг, поддержка</option>
@@ -150,6 +150,22 @@
         <button type="button" class="danger" id="habit-del" hidden>Удалить</button>
         <button value="cancel" formnovalidate class="ghost">Отмена</button>
         <button value="ok" class="primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Интервью: проходится один раз -->
+  <dialog id="iv-dlg" class="sheet">
+    <form method="dialog" id="iv-form">
+      <div class="iv-top"><span id="iv-step"></span><button value="cancel" formnovalidate class="iv-x" aria-label="Закрыть">✕</button></div>
+      <div class="iv-bar"><i id="iv-progress"></i></div>
+      <h2 id="iv-q"></h2>
+      <textarea id="iv-a" rows="6" placeholder="Отвечай как есть, своими словами…"></textarea>
+      <div id="iv-preview" class="iv-preview" hidden></div>
+      <p class="hint warn" id="iv-warn" hidden>🔒 После записи интервью нельзя будет изменить или удалить. Перечитай внимательно.</p>
+      <div class="actions">
+        <button type="button" class="ghost" id="iv-back">Назад</button>
+        <button type="button" class="primary" id="iv-next">Далее</button>
       </div>
     </form>
   </dialog>

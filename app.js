@@ -7,9 +7,14 @@ const state = load();
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    if (s && Array.isArray(s.tasks) && Array.isArray(s.habits)) return s;
+    if (s && Array.isArray(s.tasks) && Array.isArray(s.habits)) return withDefaults(s);
   } catch (e) {}
-  return { tasks: [], habits: [] };
+  return withDefaults({ tasks: [], habits: [] });
+}
+function withDefaults(s) {
+  s.profile = { name: '', identity: '', goals: '', bio: '', tone: 'friend', from: 9, to: 21, apiKey: '', saved: false, ...s.profile };
+  s.moti = { current: null, hidden: false, lastSlot: 0, queue: [], history: [], ...s.moti };
+  return s;
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
@@ -64,7 +69,8 @@ document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('cli
   tab = b.dataset.tab;
   document.querySelectorAll('.tabbar button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
-  $('#title').textContent = tab === 'tasks' ? 'Задачи' : 'Привычки';
+  $('#title').textContent = { tasks: 'Задачи', habits: 'Привычки', me: 'Я' }[tab];
+  $('#fab').hidden = tab === 'me';
   render();
 }));
 
@@ -229,9 +235,13 @@ function exportIcs(t) {
     `SUMMARY:${icsText(t.title)}\r\n` + (t.note ? `DESCRIPTION:${icsText(t.note)}\r\n` : '') +
     'BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT0M\r\nDESCRIPTION:Напоминание\r\nEND:VALARM\r\n' +
     'END:VEVENT\r\nEND:VCALENDAR\r\n';
+  downloadIcs(ics, 'napominanie.ics');
+}
+
+function downloadIcs(ics, name) {
   const a = document.createElement('a');
   a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-  a.download = 'napominanie.ics';
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -243,12 +253,12 @@ async function askNotify() {
   try { await Notification.requestPermission(); } catch (e) {}
 }
 
-async function notify(t) {
-  const opts = { body: t.note || humanDue(t.due), tag: t.id, icon: 'icons/icon-192.png' };
+async function notify(title, body, tag) {
+  const opts = { body, tag, icon: 'icons/icon-192.png' };
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
-    if (reg) reg.showNotification('⏰ ' + t.title, opts);
-    else new Notification('⏰ ' + t.title, opts);
+    if (reg) reg.showNotification(title, opts);
+    else new Notification(title, opts);
   } catch (e) {}
 }
 
@@ -259,7 +269,7 @@ function checkDue() {
     if (!t.done && t.due && !t.notified && new Date(t.due) <= now) {
       t.notified = true;
       changed = true;
-      if ('Notification' in window && Notification.permission === 'granted') notify(t);
+      if ('Notification' in window && Notification.permission === 'granted') notify('⏰ ' + t.title, t.note || humanDue(t.due), t.id);
       else toast('⏰ ' + t.title);
     }
   }
@@ -372,15 +382,286 @@ $('#habit-del').addEventListener('click', () => {
 // Закрытие листа тапом по затемнённому фону
 [taskDlg, habitDlg].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
 
+// ---------- Мотивация каждые 3 часа ----------
+const EVERY_H = 3;
+const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.133.0/+esm';
+const P = state.profile;
+const M = state.moti;
+
+function hoursRange() {
+  const a = Math.min(23, Math.max(0, +P.from || 0));
+  const b = Math.min(23, Math.max(0, +P.to || 0));
+  const [from, to] = a <= b ? [a, b] : [b, a];
+  const hs = [];
+  for (let h = from; h <= to; h += EVERY_H) hs.push(h);
+  return hs;
+}
+
+// Время последнего «слота» (9:00, 12:00, 15:00…), который уже наступил
+function currentSlot(now = new Date()) {
+  const hs = hoursRange();
+  for (let back = 0; back < 2; back++) {
+    const day = addDays(startOfDay(now), -back);
+    for (let i = hs.length - 1; i >= 0; i--) {
+      const t = new Date(day); t.setHours(hs[i]);
+      if (t <= now) return t.getTime();
+    }
+  }
+  return 0;
+}
+
+const goalsList = () => P.goals.split('\n').map(g => g.trim()).filter(Boolean);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function templateMessage() {
+  const n = P.name.trim() || 'Эй';
+  const who = P.identity.trim();
+  const g = goalsList();
+  const goal = g.length ? pick(g) : '';
+  const lines = [
+    `${n}, маленький шаг сегодня — это большой шаг через год. Сделай один прямо сейчас.`,
+    `${n}, за твоими плечами уже многое. Это — ещё один день, который ты выиграешь.`,
+    `Дисциплина — это помнить, чего ты хочешь на самом деле. ${n}, ты помнишь.`,
+    `${n}, не жди мотивации. Начни — и она догонит.`,
+    `Сравнивай себя только с собой вчерашним, ${n}. И сегодня ты на шаг впереди.`,
+    `${n}, усталость пройдёт, а гордость за сделанное останется.`,
+  ];
+  if (who) lines.push(
+    `${n}, не забывай: ты — ${who}. Веди себя сегодня как этот человек.`,
+    `Ты — ${who}. Такие люди не ищут оправданий, они ищут способ.`,
+    `${n}, мир уже видел, что ты ${who}. Покажи это ещё раз.`,
+  );
+  if (goal) lines.push(
+    `${n}, помни, зачем всё это: «${goal}». Что ты можешь сделать для этого за 15 минут?`,
+    `«${goal}» — сама собой цель не случится. Но ты, ${n}, случишься с ней.`,
+    `Каждый раз, когда хочется сдаться, вспомни: «${goal}». Ты к этому ближе, чем кажется.`,
+  );
+  if (P.tone === 'coach') lines.push(
+    `${n}, хватит думать. Вставай и делай. Вечером отчитаешься себе.`,
+    `Никто не придёт и не сделает это за тебя, ${n}. Вперёд.`,
+  );
+  if (P.tone === 'wise') lines.push(
+    `${n}, сделай паузу, вдохни. Ты идёшь в своём темпе — и это правильно.`,
+    `Река точит камень не силой, а постоянством. ${n}, просто продолжай.`,
+  );
+  const recent = M.history.slice(0, 5).map(h => h.text);
+  const fresh = lines.filter(l => !recent.includes(l));
+  return pick(fresh.length ? fresh : lines);
+}
+
+const TONES = {
+  friend: 'тёплый близкий друг: поддерживает, верит в человека, говорит просто',
+  coach: 'жёсткий тренер: коротко, прямо, без нытья, с вызовом',
+  wise: 'спокойный мудрый наставник: глубоко, бережно, без пафоса',
+};
+
+async function aiMessages(count) {
+  const { default: Anthropic } = await import(SDK_URL);
+  const client = new Anthropic({ apiKey: P.apiKey.trim(), dangerouslyAllowBrowser: true });
+  const liked = M.history.filter(h => h.liked).slice(0, 5).map(h => '- ' + h.text).join('\n');
+  const recent = M.history.slice(0, 10).map(h => '- ' + h.text).join('\n');
+  const about = [
+    P.name && `Имя: ${P.name}`,
+    P.identity && `Кто это в двух словах: ${P.identity}`,
+    goalsList().length && `Цели:\n${goalsList().map(g => '- ' + g).join('\n')}`,
+    P.bio && `Биография:\n${P.bio}`,
+  ].filter(Boolean).join('\n\n');
+  const res = await client.beta.messages.create({
+    model: 'claude-opus-5-5',
+    max_tokens: 8000,
+    betas: ['server-side-fallback-2026-07-01'],
+    fallbacks: 'default',
+    output_config: {
+      effort: 'low',
+      format: {
+        type: 'json_schema',
+        schema: {
+          type: 'object',
+          properties: { messages: { type: 'array', items: { type: 'string' } } },
+          required: ['messages'],
+          additionalProperties: false,
+        },
+      },
+    },
+    system: 'Ты пишешь короткие мотивационные сообщения на русском языке, которые приходят человеку на iPhone в течение дня. ' +
+      'Каждое сообщение напоминает ему, кто он на самом деле: опирайся на конкретные факты из его биографии, цели и то, чем он гордится. ' +
+      'Обращайся на «ты», иногда по имени. Род (мужской/женский) бери из биографии, если он неясен — пиши нейтрально. 1–3 предложения, до 220 символов. Без хэштегов, без кавычек вокруг всего текста, без банальных цитат. ' +
+      'Сообщения должны быть разными по смыслу и не повторять уже отправленные. Тон: ' + TONES[P.tone],
+    messages: [{
+      role: 'user',
+      content: `${about || 'О человеке пока ничего не известно.'}\n\n` +
+        (liked ? `Ему понравились такие сообщения:\n${liked}\n\n` : '') +
+        (recent ? `Уже отправлено (не повторяй):\n${recent}\n\n` : '') +
+        `Напиши ${count} сообщений.`,
+    }],
+  });
+  if (res.stop_reason === 'refusal') throw new Error('модель отказалась');
+  const text = res.content.find(b => b.type === 'text')?.text || '{}';
+  const list = (JSON.parse(text).messages || []).map(m => String(m).trim()).filter(Boolean);
+  if (!list.length) throw new Error('пустой ответ');
+  return list;
+}
+
+async function nextMessage() {
+  if (M.queue.length) return M.queue.shift();
+  if (P.apiKey.trim()) {
+    try {
+      M.queue = await aiMessages(8);
+      return M.queue.shift();
+    } catch (e) {
+      toast('Claude недоступен, беру шаблон: ' + (e.message || e).toString().slice(0, 60));
+    }
+  }
+  return templateMessage();
+}
+
+let delivering = false;
+async function deliverMotivation() {
+  if (delivering) return;
+  delivering = true;
+  $('#moti').classList.add('loading');
+  try {
+    const text = await nextMessage();
+    M.current = { text, at: Date.now(), liked: false };
+    M.history.unshift(M.current);
+    M.history = M.history.slice(0, 60);
+    M.hidden = false;
+    save();
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      notify(P.name ? `💬 ${P.name}, это тебе` : '💬 Это тебе', text, 'moti');
+    }
+  } finally {
+    delivering = false;
+    $('#moti').classList.remove('loading');
+    renderMoti();
+    if (tab === 'me') renderMe();
+  }
+}
+
+function checkMotivation() {
+  if (!P.saved) return;
+  const slot = currentSlot();
+  if (slot && slot > M.lastSlot) {
+    M.lastSlot = slot;
+    save();
+    deliverMotivation();
+  }
+}
+
+function renderMoti() {
+  const c = M.current;
+  $('#moti').hidden = !c || M.hidden;
+  if (!c) return;
+  $('#moti-text').textContent = c.text;
+  $('#moti-time').textContent = humanDue(c.at).replace(/^Сегодня, /, '');
+  $('#moti-like').textContent = c.liked ? '❤️' : '🤍';
+}
+
+$('#moti-like').addEventListener('click', () => {
+  if (!M.current) return;
+  M.current.liked = !M.current.liked;
+  const h = M.history.find(x => x.at === M.current.at);
+  if (h) h.liked = M.current.liked;
+  buzz(); save(); renderMoti();
+  if (M.current.liked) toast('Учту, что такие тебе заходят');
+});
+$('#moti-next').addEventListener('click', deliverMotivation);
+$('#moti-close').addEventListener('click', () => { M.hidden = true; save(); renderMoti(); });
+
+// --- Профиль ---
+const meForm = $('#me-form');
+
+function renderMe() {
+  for (const k of ['name', 'identity', 'goals', 'bio', 'tone', 'from', 'to', 'apiKey']) {
+    if (document.activeElement !== meForm[k]) meForm[k].value = P[k];
+  }
+  if (P.apiKey) $('#ai-box').open = true;
+  slotsHint();
+  $('#moti-history').innerHTML = M.history.map(h =>
+    `<li><span class="h-when">${humanDue(h.at)}${h.liked ? ' · ❤️' : ''}</span><span>${esc(h.text)}</span></li>`).join('');
+  $('#history-empty').hidden = M.history.length > 0;
+}
+
+function slotsHint() {
+  const saved = { from: P.from, to: P.to };
+  P.from = meForm.from.value; P.to = meForm.to.value;
+  $('#slots-hint').textContent = 'Сообщения будут приходить в ' + hoursRange().map(h => h + ':00').join(', ');
+  Object.assign(P, saved);
+}
+meForm.from.addEventListener('input', slotsHint);
+meForm.to.addEventListener('input', slotsHint);
+
+meForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const first = !P.saved;
+  const before = JSON.stringify([P.name, P.identity, P.goals, P.bio, P.tone]);
+  for (const k of ['name', 'identity', 'goals', 'bio', 'tone', 'apiKey']) P[k] = meForm[k].value.trim();
+  P.from = +meForm.from.value || 0;
+  P.to = +meForm.to.value || 0;
+  P.saved = true;
+  // Сообщения в очереди написаны под старую биографию — выбрасываем
+  if (before !== JSON.stringify([P.name, P.identity, P.goals, P.bio, P.tone])) M.queue = [];
+  M.lastSlot = currentSlot();
+  save();
+  document.activeElement.blur();
+  toast(first ? 'Готово! Вот первое сообщение 👇' : 'Сохранено');
+  askNotify();
+  if (first) {
+    deliverMotivation().then(() => $('[data-tab=tasks]').click());
+  }
+  renderMe();
+});
+
+$('#moti-now').addEventListener('click', () => {
+  if (!P.saved) return toast('Сначала заполни и сохрани профиль');
+  deliverMotivation().then(() => $('[data-tab=tasks]').click());
+});
+
+// Пакет сообщений на неделю в Календарь — уведомления придут даже при закрытом приложении
+$('#moti-cal').addEventListener('click', async () => {
+  if (!P.saved) return toast('Сначала заполни и сохрани профиль');
+  const now = new Date();
+  const slots = [];
+  for (let d = 0; d < 8; d++) {
+    for (const h of hoursRange()) {
+      const t = addDays(startOfDay(now), d); t.setHours(h);
+      if (t > now) slots.push(t);
+    }
+  }
+  slots.length = Math.min(slots.length, 7 * hoursRange().length);
+  const btn = $('#moti-cal');
+  btn.disabled = true;
+  btn.textContent = '⏳ Готовлю сообщения…';
+  let texts = [];
+  if (P.apiKey.trim()) {
+    try { texts = await aiMessages(slots.length); } catch (e) { toast('Claude недоступен, использую шаблоны'); }
+  }
+  while (texts.length < slots.length) texts.push(templateMessage());
+  btn.disabled = false;
+  btn.textContent = '📅 Мотивация в Календарь на 7 дней';
+  const events = slots.map((t, i) => 'BEGIN:VEVENT\r\n' +
+    `UID:moti-${t.getTime()}@dela\r\nDTSTAMP:${icsDate(toInput(now))}\r\n` +
+    `DTSTART:${icsDate(toInput(t))}\r\nDURATION:PT5M\r\n` +
+    `SUMMARY:💬 ${icsText(texts[i])}\r\nDESCRIPTION:${icsText(texts[i])}\r\n` +
+    'BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT0M\r\nDESCRIPTION:Мотивация\r\nEND:VALARM\r\n' +
+    'END:VEVENT\r\n').join('');
+  downloadIcs('BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Dela//RU\r\nX-WR-CALNAME:Мотивация\r\n' + events + 'END:VCALENDAR\r\n', 'motivaciya.ics');
+});
+
 // ---------- Старт ----------
-function render() { tab === 'tasks' ? renderTasks() : renderHabits(); }
+function render() {
+  if (tab === 'tasks') { renderMoti(); renderTasks(); }
+  else if (tab === 'habits') renderHabits();
+  else renderMe();
+}
 
 render();
 updateBadge();
 checkDue();
-setInterval(checkDue, 20e3);
+checkMotivation();
+setInterval(() => { checkDue(); checkMotivation(); }, 20e3);
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) { $('#today').textContent = fmtHeader.format(new Date()); checkDue(); render(); }
+  if (!document.hidden) { $('#today').textContent = fmtHeader.format(new Date()); checkDue(); checkMotivation(); render(); }
 });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});

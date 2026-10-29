@@ -7,8 +7,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Дела">
-  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#14203A">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" href="icons/icon-192.png">
@@ -24,6 +23,15 @@
   <main>
     <!-- Задачи -->
     <section id="tab-tasks" class="tab active">
+      <div class="moti" id="moti" hidden>
+        <div class="moti-head"><span>💬 Для тебя</span><span id="moti-time"></span></div>
+        <p id="moti-text"></p>
+        <div class="moti-actions">
+          <button id="moti-like" aria-label="Нравится">🤍</button>
+          <button id="moti-next">Ещё одно</button>
+          <button id="moti-close" aria-label="Скрыть">✕</button>
+        </div>
+      </div>
       <div class="seg" id="filters">
         <button data-f="today" class="on">Сегодня</button>
         <button data-f="all">Все</button>
@@ -39,6 +47,53 @@
       <ul class="list" id="habit-list"></ul>
       <p class="empty" id="habit-empty">Добавь привычку: вода, спорт, чтение… 💪</p>
     </section>
+    <!-- Я -->
+    <section id="tab-me" class="tab">
+      <form id="me-form" class="me" autocomplete="off">
+        <p class="hint">Расскажи о себе — и каждые 3 часа приложение будет напоминать тебе, кто ты на самом деле.</p>
+        <label class="field">Как тебя зовут
+          <input name="name" placeholder="Например: Саша">
+        </label>
+        <label class="field">Кто ты в двух словах
+          <input name="identity" placeholder="Например: боец, который не сдаётся">
+        </label>
+        <label class="field">Твои цели (каждая с новой строки)
+          <textarea name="goals" rows="3" placeholder="Запустить свой бизнес&#10;Пробежать марафон"></textarea>
+        </label>
+        <label class="field">Биография
+          <textarea name="bio" rows="7" placeholder="Откуда ты, через что прошёл, чем гордишься, что тебя зажигает, ради кого всё это…"></textarea>
+        </label>
+        <label class="field">Тон сообщений
+          <select name="tone">
+            <option value="friend">Друг, поддержка</option>
+            <option value="coach">Жёсткий тренер</option>
+            <option value="wise">Спокойный наставник</option>
+          </select>
+        </label>
+        <div class="row2">
+          <label class="field">С <input type="number" name="from" min="0" max="23" value="9"></label>
+          <label class="field">До <input type="number" name="to" min="0" max="23" value="21"></label>
+        </div>
+        <p class="hint" id="slots-hint"></p>
+
+        <details class="ai" id="ai-box">
+          <summary>🤖 Умные сообщения от Claude (необязательно)</summary>
+          <p class="hint">Без ключа сообщения собираются из шаблонов по твоему имени и целям. С ключом Anthropic API их пишет ИИ, который читает твою биографию целиком. Ключ хранится только на этом телефоне, а биография отправляется в Anthropic при генерации.</p>
+          <label class="field">API-ключ
+            <input name="apiKey" type="password" placeholder="sk-ant-…">
+          </label>
+        </details>
+
+        <button class="primary big" type="submit">Сохранить</button>
+        <button class="ghost big" type="button" id="moti-now">💬 Получить сообщение сейчас</button>
+        <button class="ghost big" type="button" id="moti-cal">📅 Мотивация в Календарь на 7 дней</button>
+        <p class="hint">Календарь iPhone пришлёт уведомления даже при закрытом приложении.</p>
+      </form>
+
+      <h3 class="sub">История</h3>
+      <ul class="list" id="moti-history"></ul>
+      <p class="empty" id="history-empty">Пока сообщений нет</p>
+    </section>
   </main>
 
   <button class="fab" id="fab" aria-label="Добавить">+</button>
@@ -46,6 +101,7 @@
   <nav class="tabbar">
     <button data-tab="tasks" class="on"><span>✅</span>Задачи</button>
     <button data-tab="habits"><span>🔥</span>Привычки</button>
+    <button data-tab="me"><span>🙂</span>Я</button>
   </nav>
 
   <!-- Окно добавления задачи -->

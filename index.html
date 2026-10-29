@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Дела">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Дела</title>
+</head>
+<body>
+  <header class="top">
+    <div class="date" id="today"></div>
+    <h1 id="title">Задачи</h1>
+  </header>
+
+  <main>
+    <!-- Задачи -->
+    <section id="tab-tasks" class="tab active">
+      <div class="seg" id="filters">
+        <button data-f="today" class="on">Сегодня</button>
+        <button data-f="all">Все</button>
+        <button data-f="done">Готово</button>
+      </div>
+      <ul class="list" id="task-list"></ul>
+      <p class="empty" id="task-empty">Пусто. Нажми «+», чтобы добавить дело ✨</p>
+    </section>
+
+    <!-- Привычки -->
+    <section id="tab-habits" class="tab">
+      <div class="week-head" id="week-head"></div>
+      <ul class="list" id="habit-list"></ul>
+      <p class="empty" id="habit-empty">Добавь привычку: вода, спорт, чтение… 💪</p>
+    </section>
+  </main>
+
+  <button class="fab" id="fab" aria-label="Добавить">+</button>
+
+  <nav class="tabbar">
+    <button data-tab="tasks" class="on"><span>✅</span>Задачи</button>
+    <button data-tab="habits"><span>🔥</span>Привычки</button>
+  </nav>
+
+  <!-- Окно добавления задачи -->
+  <dialog id="task-dlg" class="sheet">
+    <form method="dialog" id="task-form">
+      <h2 id="task-dlg-title">Новая задача</h2>
+      <input name="title" placeholder="Что сделать?" required autocomplete="off">
+      <textarea name="note" rows="2" placeholder="Заметка (необязательно)"></textarea>
+      <div class="quick" id="quick-dates">
+        <button type="button" data-q="none">Без срока</button>
+        <button type="button" data-q="1h">Через час</button>
+        <button type="button" data-q="tonight">Вечером</button>
+        <button type="button" data-q="tomorrow">Завтра утром</button>
+      </div>
+      <label class="row">Когда <input type="datetime-local" name="due"></label>
+      <label class="row">Важность
+        <select name="prio">
+          <option value="0">Обычная</option>
+          <option value="1">Важно ❗</option>
+          <option value="2">Срочно 🔥</option>
+        </select>
+      </label>
+      <label class="row">Повтор
+        <select name="repeat">
+          <option value="">Нет</option>
+          <option value="day">Каждый день</option>
+          <option value="week">Каждую неделю</option>
+          <option value="month">Каждый месяц</option>
+        </select>
+      </label>
+      <div class="actions">
+        <button type="button" class="danger" id="task-del" hidden>Удалить</button>
+        <button value="cancel" formnovalidate class="ghost">Отмена</button>
+        <button value="ok" class="primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Окно добавления привычки -->
+  <dialog id="habit-dlg" class="sheet">
+    <form method="dialog" id="habit-form">
+      <h2 id="habit-dlg-title">Новая привычка</h2>
+      <div class="emoji-pick" id="emoji-pick"></div>
+      <input name="name" placeholder="Например: 2 литра воды" required autocomplete="off">
+      <div class="actions">
+        <button type="button" class="danger" id="habit-del" hidden>Удалить</button>
+        <button value="cancel" formnovalidate class="ghost">Отмена</button>
+        <button value="ok" class="primary">Сохранить</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

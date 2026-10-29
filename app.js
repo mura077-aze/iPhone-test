@@ -529,9 +529,12 @@ let delivering = false;
 async function deliverMotivation() {
   if (delivering) return;
   delivering = true;
+  $('#moti').hidden = false;
   $('#moti').classList.add('loading');
+  $('#moti-thinking').hidden = false;
   try {
-    const text = await nextMessage();
+    // Даём «S» покрутиться хотя бы секунду, даже если шаблон готов мгновенно
+    const [text] = await Promise.all([nextMessage(), new Promise(r => setTimeout(r, 1300))]);
     M.current = { text, at: Date.now(), liked: false };
     M.history.unshift(M.current);
     M.history = M.history.slice(0, 60);
@@ -543,6 +546,7 @@ async function deliverMotivation() {
   } finally {
     delivering = false;
     $('#moti').classList.remove('loading');
+    $('#moti-thinking').hidden = true;
     renderMoti();
     if (tab === 'me') renderMe();
   }
@@ -560,6 +564,7 @@ function checkMotivation() {
 
 function renderMoti() {
   const c = M.current;
+  if (delivering) return;
   $('#moti').hidden = !c || M.hidden;
   if (!c) return;
   $('#moti-text').textContent = c.text;
@@ -642,7 +647,7 @@ $('#moti-cal').addEventListener('click', async () => {
   slots.length = Math.min(slots.length, 7 * hoursRange().length);
   const btn = $('#moti-cal');
   btn.disabled = true;
-  btn.textContent = '⏳ Готовлю сообщения…';
+  btn.innerHTML = '<span class="s-mark">S</span>Готовлю сообщения…';
   let texts = [];
   if (P.apiKey.trim()) {
     try { texts = await aiMessages(slots.length); } catch (e) { toast('Claude недоступен, использую шаблоны'); }
@@ -764,6 +769,7 @@ function render() {
 }
 
 render();
+setTimeout(() => $('#splash').classList.add('gone'), 1100);
 updateBadge();
 checkDue();
 checkMotivation();

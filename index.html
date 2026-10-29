@@ -11,10 +11,14 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="style.css">
   <title>Дела</title>
 </head>
 <body>
+  <div class="splash" id="splash" aria-hidden="true"><span class="s-mark">S</span></div>
   <header class="top">
     <div class="date" id="today"></div>
     <h1 id="title">Задачи</h1>
@@ -25,6 +29,9 @@
     <section id="tab-tasks" class="tab active">
       <div class="moti" id="moti" hidden>
         <div class="moti-head"><span>💬 Для тебя</span><span id="moti-time"></span></div>
+        <div class="thinking" id="moti-thinking" hidden>
+          <span class="s-mark">S</span><span class="shimmer">Пишу для тебя…</span>
+        </div>
         <p id="moti-text"></p>
         <div class="moti-actions">
           <button id="moti-like" aria-label="Нравится">🤍</button>

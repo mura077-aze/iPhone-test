@@ -1,4 +1,6 @@
 :root {
+  --font-num: "Poppins", "Manrope", sans-serif;
+  --spark: #D97757;
   --bg: #14203A;
   --card: #1D2B4A;
   --text: #F3F5FA;
@@ -16,7 +18,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 body {
-  font: 17px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font: 500 17px/1.4 "Manrope", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   padding: env(safe-area-inset-top) 16px calc(90px + env(safe-area-inset-bottom));
   min-height: 100vh;
   -webkit-user-select: none;
@@ -27,7 +29,8 @@ button { cursor: pointer; }
 
 .top { padding: 18px 4px 10px; }
 .date { color: var(--muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
-h1 { margin: 2px 0 0; font-size: 34px; font-weight: 800; letter-spacing: -.02em; }
+h1, h2, h3 { font-family: "Jost", "Manrope", sans-serif; }
+h1 { margin: 2px 0 0; font-size: 36px; font-weight: 700; letter-spacing: -.01em; }
 
 .tab { display: none; }
 .tab.active { display: block; }
@@ -204,3 +207,54 @@ dialog textarea { resize: none; }
 .iv-preview { max-height: 50vh; overflow-y: auto; background: var(--card); border-radius: 12px; padding: 14px; }
 .hint.warn { color: var(--accent); font-weight: 600; }
 dialog.sheet { max-height: calc(100% - env(safe-area-inset-top) - 20px); overflow-y: auto; }
+
+/* Шрифты: Jost — заголовки, Manrope — текст, Poppins — цифры */
+.date, .moti-head, .seg button, .tabbar button, .actions button, .big, .fab { font-family: "Jost", "Manrope", sans-serif; }
+.date { font-size: 14px; letter-spacing: .06em; }
+.h-day, .h-streak, #moti-time, .fab, .field input[type=number] { font-family: var(--font-num); }
+.h-day { font-weight: 600; }
+
+/* Знак «S»: движется как значок Claude, когда тот думает */
+.s-mark {
+  display: inline-block; font-family: "Jost", sans-serif; font-weight: 800; line-height: 1;
+  color: var(--spark); transform-origin: 50% 54%;
+  text-shadow: 0 0 14px rgba(217, 119, 87, .45);
+  animation: s-think 2.6s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+/* Поворот рывками по четверти оборота с «вдохом» на каждом шаге */
+@keyframes s-think {
+  0%   { transform: rotate(0deg)   scale(1); }
+  18%  { transform: rotate(90deg)  scale(.78); }
+  25%  { transform: rotate(90deg)  scale(1); }
+  43%  { transform: rotate(180deg) scale(.78); }
+  50%  { transform: rotate(180deg) scale(1); }
+  68%  { transform: rotate(270deg) scale(.78); }
+  75%  { transform: rotate(270deg) scale(1); }
+  93%  { transform: rotate(360deg) scale(.78); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.thinking { display: flex; align-items: center; gap: 12px; margin: 12px 0 14px; }
+.thinking[hidden] { display: none; }
+.thinking .s-mark { font-size: 30px; }
+.shimmer {
+  font-size: 17px; font-weight: 600;
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, #fff 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+.moti.loading #moti-text, .moti.loading .moti-actions { display: none; }
+.big .s-mark { font-size: 20px; margin-right: 8px; vertical-align: -2px; }
+
+.splash {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: var(--bg);
+  transition: opacity .45s ease, visibility .45s;
+}
+.splash .s-mark { font-size: 84px; }
+.splash.gone { opacity: 0; visibility: hidden; }
+.splash.gone .s-mark { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .s-mark { animation-duration: 6s; }
+  .shimmer { animation: none; color: var(--muted); }
+}

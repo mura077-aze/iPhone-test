@@ -29,15 +29,17 @@
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <filter id="s-liquid" x="-30%" y="-30%" width="160%" height="160%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.035 0.06" numOctaves="2" seed="3" result="noise">
+    <!-- «Жидкая» буква: шум плавно меняется, а сила искажения то растёт (буква плывёт), то спадает (собирается) -->
+    <filter id="s-liquid" x="-40%" y="-40%" width="180%" height="180%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.05" numOctaves="2" seed="7" result="noise">
         <animate attributeName="baseFrequency" dur="12s" repeatCount="indefinite"
-          values="0.035 0.06;0.05 0.09;0.03 0.05;0.035 0.06"/>
+          values="0.03 0.05;0.045 0.08;0.025 0.06;0.04 0.07;0.03 0.05"/>
+        <animate attributeName="seed" dur="12s" repeatCount="indefinite" values="7;8;9;10;11;12;7" calcMode="discrete"/>
       </feTurbulence>
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="0" xChannelSelector="R" yChannelSelector="G">
         <animate attributeName="scale" dur="12s" repeatCount="indefinite"
-          values="0;0;11;3;0;0" keyTimes="0;0.13;0.2;0.26;0.31;1" calcMode="spline"
-          keySplines="0 0 1 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;0 0 1 1"/>
+          values="0;0;20;9;0;0;14;0;0" keyTimes="0;0.1;0.2;0.27;0.36;0.62;0.72;0.84;1" calcMode="spline"
+          keySplines="0 0 1 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1;0 0 1 1;.45 0 .55 1;.45 0 .55 1;0 0 1 1"/>
       </feDisplacementMap>
     </filter>
   </svg>

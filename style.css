@@ -222,24 +222,20 @@ dialog.sheet { max-height: calc(100% - env(safe-area-inset-top) - 20px); overflo
 .h-day, .h-streak, #moti-time, .fab, .field input[type=number] { font-family: var(--font-num); }
 .h-day { font-weight: 600; }
 
-/* Знак «S»: движется как значок Claude, когда тот думает */
+/* Маленькая буква в «думаю…»: пульсирует и расплывается */
 .s-mark {
   display: inline-block; font-family: "Jost", sans-serif; font-weight: 800; line-height: 1;
   color: var(--spark); transform-origin: 50% 54%;
   text-shadow: 0 0 14px rgba(217, 119, 87, .45);
-  animation: s-think 2.6s cubic-bezier(.65, 0, .35, 1) infinite;
+  animation: s-think 2.2s ease-in-out infinite;
 }
 /* Поворот рывками по четверти оборота с «вдохом» на каждом шаге */
 @keyframes s-think {
-  0%   { transform: rotate(0deg)   scale(1); }
-  18%  { transform: rotate(90deg)  scale(.78); }
-  25%  { transform: rotate(90deg)  scale(1); }
-  43%  { transform: rotate(180deg) scale(.78); }
-  50%  { transform: rotate(180deg) scale(1); }
-  68%  { transform: rotate(270deg) scale(.78); }
-  75%  { transform: rotate(270deg) scale(1); }
-  93%  { transform: rotate(360deg) scale(.78); }
-  100% { transform: rotate(360deg) scale(1); }
+  0%, 100% { transform: scale(1, 1); filter: blur(0); opacity: 1; }
+  25%      { transform: scale(1.12, .9); filter: blur(1.2px); }
+  50%      { transform: scale(1.3, 1.3); filter: blur(3.5px); opacity: .4; }
+  75%      { transform: scale(.92, 1.1); filter: blur(.8px); opacity: .9; }
+}
 }
 .thinking { display: flex; align-items: center; gap: 12px; margin: 12px 0 14px; }
 .thinking[hidden] { display: none; }
@@ -322,7 +318,7 @@ html[data-theme="lavender"] {
 .theme-dots { display: flex; gap: 4px; padding: 0 4px 4px; }
 .theme-dots span { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(128,128,128,.3); }
 
-/* ---------- Живая буква (первая буква имени, по умолчанию «S»): дышит, плавится, рассыпается на полосы и делает оборот ---------- */
+/* ---------- Живая буква (первая буква имени, по умолчанию «S»): дышит, плавится, рассыпается на полосы и растворяется ---------- */
 .top { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 12px; }
 .top .s-live { grid-column: 2; grid-row: 1 / span 2; }
 .s-live {
@@ -345,24 +341,29 @@ html[data-theme="lavender"] {
 .s-core span:nth-child(4) { --t: 62%; --b: 18%; --dx: .14em;  --d: .15s; }
 .s-core span:nth-child(5) { --t: 82%; --b: 0%;  --dx: -.11em; --d: .2s; }
 
-/* Общий ритм на 12 секунд */
+/* Общий ритм на 12 секунд, без вращения:
+   0–10% дышит → 10–36% плывёт как жидкость и растекается вниз → 36–56% рассыпается на полосы →
+   62–84% растворяется в дымку и снова собирается → дальше спокойно */
 @keyframes s-flow {
-  0%, 100% { transform: rotate(0deg) scale(1); }
-  7%       { transform: rotate(0deg) scale(1.05); }
-  14%      { transform: rotate(0deg) scale(1); }
-  56%      { transform: rotate(0deg) scale(1); }
-  62%      { transform: rotate(140deg) scale(.8); }
-  68%      { transform: rotate(320deg) scale(1.05); }
-  72%      { transform: rotate(360deg) scale(1); }
-  99.99%   { transform: rotate(360deg) scale(1); }
+  0%, 100% { transform: translateY(0) scale(1, 1); opacity: 1; }
+  6%       { transform: translateY(0) scale(1.04, 1.04); }
+  12%      { transform: translateY(0) scale(1, 1); }
+  20%      { transform: translateY(4%) scale(1.08, 1.14); }
+  27%      { transform: translateY(2%) scale(.97, 1.05); }
+  36%      { transform: translateY(0) scale(1, 1); }
+  62%      { transform: translateY(0) scale(1, 1); opacity: 1; }
+  70%      { transform: translateY(-2%) scale(1.22, 1.22); opacity: .35; }
+  76%      { transform: translateY(1%) scale(.94, .94); opacity: .85; }
+  84%      { transform: translateY(0) scale(1, 1); opacity: 1; }
 }
 @keyframes s-glow {
   0%, 100% { filter: drop-shadow(0 0 6px rgba(217,119,87,.35)) blur(0); }
-  7%       { filter: drop-shadow(0 0 16px rgba(217,119,87,.6)) blur(0); }
-  20%      { filter: drop-shadow(0 0 12px rgba(217,119,87,.5)) blur(1.4px); }
-  30%      { filter: drop-shadow(0 0 8px rgba(217,119,87,.4)) blur(0); }
-  66%      { filter: drop-shadow(0 0 18px rgba(217,119,87,.65)) blur(.6px); }
-  76%      { filter: drop-shadow(0 0 6px rgba(217,119,87,.35)) blur(0); }
+  6%       { filter: drop-shadow(0 0 16px rgba(217,119,87,.6)) blur(0); }
+  20%      { filter: drop-shadow(0 0 14px rgba(217,119,87,.55)) blur(1.6px); }
+  36%      { filter: drop-shadow(0 0 7px rgba(217,119,87,.4)) blur(0); }
+  70%      { filter: drop-shadow(0 0 22px rgba(217,119,87,.7)) blur(5px); }
+  78%      { filter: drop-shadow(0 0 12px rgba(217,119,87,.5)) blur(1px); }
+  84%      { filter: drop-shadow(0 0 6px rgba(217,119,87,.35)) blur(0); }
 }
 /* Полосы разъезжаются и собираются обратно */
 @keyframes s-slice {

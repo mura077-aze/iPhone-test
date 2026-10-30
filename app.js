@@ -686,6 +686,7 @@ meForm.addEventListener('submit', e => {
   P.from = +meForm.from.value || 0;
   P.to = +meForm.to.value || 0;
   P.saved = true;
+  paintLetters();
   // Сообщения в очереди написаны под старую биографию — выбрасываем
   if (before !== JSON.stringify([P.name, P.identity, P.goals, P.tone])) M.queue = [];
   M.lastSlot = currentSlot();
@@ -718,7 +719,7 @@ $('#moti-cal').addEventListener('click', async () => {
   slots.length = Math.min(slots.length, 7 * hoursRange().length);
   const btn = $('#moti-cal');
   btn.disabled = true;
-  btn.innerHTML = '<span class="s-mark">S</span>Готовлю сообщения…';
+  btn.innerHTML = `<span class="s-mark">${brandLetter()}</span>Готовлю сообщения…`;
   let texts = [];
   if (P.apiKey.trim()) {
     try { texts = await aiMessages(slots.length); } catch (e) { toast('Claude недоступен, использую шаблоны'); }
@@ -910,7 +911,7 @@ function renderBio() {
 }
 
 function articleHtml(stale) {
-  if (articleBusy) return `<div class="wiki"><div class="thinking"><span class="s-mark">S</span><span class="shimmer">Пишем статью о тебе…</span></div></div>`;
+  if (articleBusy) return `<div class="wiki"><div class="thinking"><span class="s-mark">${brandLetter()}</span><span class="shimmer">Пишем статью о тебе…</span></div></div>`;
   if (!P.article) {
     return `<button type="button" class="bio-start" id="article-make"><b>✨ Создать статью о себе</b><span>ИИ напишет о тебе статью в стиле Википедии по ответам из интервью.</span></button>`;
   }
@@ -1513,10 +1514,22 @@ $('#wall-reset').addEventListener('click', () => {
 });
 applyWall();
 
-// Живая «S»: пять горизонтальных полос, которые умеют разъезжаться
-document.querySelectorAll('.s-live').forEach(el => {
-  el.innerHTML = '<span class="s-core">' + '<span>S</span>'.repeat(5) + '</span>';
-});
+// Живая буква — первая буква имени латиницей (Даша → D), пока имени нет — «S».
+// Пять горизонтальных полос, которые умеют разъезжаться
+const LATIN = { А: 'A', Б: 'B', В: 'V', Г: 'G', Д: 'D', Е: 'E', Ё: 'E', Ж: 'Z', З: 'Z', И: 'I', Й: 'Y', К: 'K', Л: 'L', М: 'M',
+  Н: 'N', О: 'O', П: 'P', Р: 'R', С: 'S', Т: 'T', У: 'U', Ф: 'F', Х: 'H', Ц: 'C', Ч: 'C', Ш: 'S', Щ: 'S', Ы: 'Y', Э: 'E', Ю: 'Y', Я: 'Y' };
+function brandLetter() {
+  const ch = (P.name.trim()[0] || '').toUpperCase();
+  return LATIN[ch] || (/[A-Z]/.test(ch) ? ch : 'S');
+}
+function paintLetters() {
+  const L = brandLetter();
+  document.querySelectorAll('.s-live').forEach(el => {
+    el.innerHTML = '<span class="s-core">' + `<span>${L}</span>`.repeat(5) + '</span>';
+  });
+  document.querySelectorAll('.s-mark').forEach(el => { el.textContent = L; });
+}
+paintLetters();
 
 // ---------- Старт ----------
 function render() {

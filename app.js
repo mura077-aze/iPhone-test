@@ -412,7 +412,7 @@ const FREE_RU = '\n\nПиши грамотным, естественным ру�
 async function freeChat(system, messages) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 90e3);
+    const timer = setTimeout(() => ctrl.abort(), 45e3);
     try {
       const r = await fetch(FREE_URL, {
         method: 'POST',
@@ -427,13 +427,13 @@ async function freeChat(system, messages) {
       if (!r.ok) {
         const err = new Error(`бесплатный ИИ ответил ${r.status}`);
         err.status = r.status;
-        if (r.status === 429 || attempt === 1) throw err;
+        if (r.status === 429 || r.status === 402 || attempt === 1) throw err;
         continue;
       }
       const text = ((await r.json()).choices?.[0]?.message?.content || '').trim();
       if (text) return text;
     } catch (e) {
-      if (e.status === 429 || attempt === 1) throw e;
+      if (e.status === 429 || e.status === 402 || attempt === 1) throw e;
     } finally {
       clearTimeout(timer);
     }
@@ -1237,7 +1237,8 @@ async function sendChat(text) {
     chat.messages.pop();
     $('#chat-input').value = text;
     bubble.remove();
-    const why = e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
+    const why = !P.apiKey.trim() ? 'Бесплатный ИИ сейчас перегружен и не ответил. Попробуй ещё раз через минуту.'
+      : e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
       : e.status === 429 ? 'Слишком много сообщений подряд. Подожди минутку.'
       : e.status === 400 && /credit|balance/i.test(e.message || '') ? 'На счёте Anthropic закончились деньги.'
       : e.status ? `Ошибка ${e.status}. Попробуй ещё раз.` : 'Нет связи. Проверь интернет.';

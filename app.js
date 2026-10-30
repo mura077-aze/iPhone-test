@@ -403,6 +403,43 @@ $('#habit-del').addEventListener('click', () => {
 // ---------- Мотивация каждые 3 часа ----------
 const EVERY_H = 3;
 const SDK_URL = 'https://cdn.jsdelivr.net/npm/@anthropic-ai/sdk@0.133.0/+esm';
+
+// Бесплатный ИИ без ключа (Pollinations): работает у всех, но попроще, чем Claude
+const FREE_URL = 'https://text.pollinations.ai/openai';
+const FREE_RU = '\n\nПиши грамотным, естественным русским языком, как носитель языка: простые фразы, без кальки с английского и странных оборотов. ' +
+  'Никогда не говори обидного и не предсказывай плохого.';
+
+async function freeChat(system, messages) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 90e3);
+    try {
+      const r = await fetch(FREE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          seed: Math.floor(Math.random() * 1e9),
+          messages: [{ role: 'system', content: system + FREE_RU }, ...messages],
+        }),
+        signal: ctrl.signal,
+      });
+      if (!r.ok) {
+        const err = new Error(`бесплатный ИИ ответил ${r.status}`);
+        err.status = r.status;
+        if (r.status === 429 || attempt === 1) throw err;
+        continue;
+      }
+      const text = ((await r.json()).choices?.[0]?.message?.content || '').trim();
+      if (text) return text;
+    } catch (e) {
+      if (e.status === 429 || attempt === 1) throw e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error('пустой ответ');
+}
 const P = state.profile;
 const M = state.moti;
 
@@ -770,9 +807,7 @@ function renderBio() {
 function articleHtml(stale) {
   if (articleBusy) return `<div class="wiki"><div class="thinking"><span class="s-mark">S</span><span class="shimmer">Пишем статью о тебе…</span></div></div>`;
   if (!P.article) {
-    return P.apiKey.trim()
-      ? `<button type="button" class="bio-start" id="article-make"><b>✨ Создать статью о себе</b><span>Claude напишет о тебе статью в стиле Википедии по ответам из интервью.</span></button>`
-      : `<div class="bio-start"><b>✨ Статья о тебе</b><span>Подключи Claude во вкладке «Чат» — и по интервью появится статья о тебе в стиле Википедии.</span></div>`;
+    return `<button type="button" class="bio-start" id="article-make"><b>✨ Создать статью о себе</b><span>ИИ напишет о тебе статью в стиле Википедии по ответам из интервью.</span></button>`;
   }
   const a = P.article.data;
   const p = t => esc(t).split(/\n+/).map(x => `<p>${x}</p>`).join('');
@@ -786,7 +821,7 @@ function articleHtml(stale) {
     <div class="wiki-lead">${p(a.lead)}</div>
     ${a.sections.map(sec => `<h3>${esc(sec.heading)}</h3>${p(sec.text)}`).join('')}
     ${a.quote ? `<blockquote>«${esc(a.quote.replace(/^[«"]|[»"]$/g, ''))}»</blockquote>` : ''}
-    ${stale && P.apiKey.trim() ? '<button type="button" class="chip" id="article-make">↻ Обновить статью с новыми ответами</button>' : ''}
+    ${stale ? '<button type="button" class="chip" id="article-make">↻ Обновить статью с новыми ответами</button>' : ''}
   </article>`;
 }
 
@@ -868,76 +903,89 @@ $('#iv-next').addEventListener('click', () => {
   save();
   ivDlg.close();
   toast('Записано 🔒');
-  if (P.apiKey.trim()) makeArticle();
-  else renderBio();
+  makeArticle();
 });
 ivDlg.addEventListener('close', () => { keepAnswer(); renderBio(); });
 
 // ---------- Статья о человеке в стиле Википедии ----------
+const ARTICLE_SYSTEM = 'Ты пишешь статью о человеке в стиле энциклопедии (как статья в Википедии), по-русски, в третьем лице. ' +
+  'Человек сам ответил на вопросы интервью; статья написана так, будто о нём уже рассказывают в интернете. ' +
+  'Тон — торжественный, вдохновляющий, немного приподнятый: подавай его путь как историю становления сильной личности. ' +
+  'Опирайся только на факты из ответов: можно ярко подать и обобщить, но не выдумывай даты, награды, имена, города и события, которых нет в ответах. ' +
+  'Иногда ссылайся на интервью («Как он признавался в интервью, …» / «По её собственным словам, …»), передавая слова близко к оригиналу. ' +
+  'title — имя человека. lead — вводный абзац 2–4 предложения: кто это и чем примечателен. ' +
+  'infobox — 4–6 строк досье (например: Имя, Род деятельности, Родом из, Известен/Известна, Ценности, Девиз) — только то, что следует из ответов. ' +
+  'sections — 3–5 разделов (например: «Ранние годы», «Путь и испытания», «Достижения», «Личность и ценности», «Планы на будущее»), по 1–2 абзаца, абзацы разделяй переводом строки. ' +
+  'quote — одна сильная цитата человека из его ответов (дословно или почти дословно).';
+
 async function makeArticle() {
-  if (articleBusy || !P.bioLocked || !P.apiKey.trim()) return;
+  if (articleBusy || !P.bioLocked) return;
   articleBusy = true;
   renderBio();
+  const userText = `Имя: ${P.name || 'не указано'}\nПол: ${P.gender === 'f' ? 'женский' : P.gender === 'm' ? 'мужской' : 'не указан — пиши нейтрально'}\n` +
+    (P.identity ? `О себе в двух словах: ${P.identity}\n` : '') +
+    (goalsList().length ? `Цели: ${goalsList().join('; ')}\n` : '') +
+    `\nИнтервью:\n${P.bio}`;
   try {
-    const { default: Anthropic } = await import(SDK_URL);
-    const client = new Anthropic({ apiKey: P.apiKey.trim(), dangerouslyAllowBrowser: true });
-    const res = await client.beta.messages.create({
-      model: 'claude-opus-5-5',
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: {
-        effort: 'medium',
-        format: {
-          type: 'json_schema',
-          schema: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              lead: { type: 'string' },
-              infobox: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: { label: { type: 'string' }, value: { type: 'string' } },
-                  required: ['label', 'value'], additionalProperties: false,
+    let data;
+    if (P.apiKey.trim()) {
+      const { default: Anthropic } = await import(SDK_URL);
+      const client = new Anthropic({ apiKey: P.apiKey.trim(), dangerouslyAllowBrowser: true });
+      const res = await client.beta.messages.create({
+        model: 'claude-opus-5-5',
+        max_tokens: 16000,
+        betas: ['server-side-fallback-2026-07-01'],
+        fallbacks: 'default',
+        output_config: {
+          effort: 'medium',
+          format: {
+            type: 'json_schema',
+            schema: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                lead: { type: 'string' },
+                infobox: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: { label: { type: 'string' }, value: { type: 'string' } },
+                    required: ['label', 'value'], additionalProperties: false,
+                  },
                 },
-              },
-              sections: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: { heading: { type: 'string' }, text: { type: 'string' } },
-                  required: ['heading', 'text'], additionalProperties: false,
+                sections: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: { heading: { type: 'string' }, text: { type: 'string' } },
+                    required: ['heading', 'text'], additionalProperties: false,
+                  },
                 },
+                quote: { type: 'string' },
               },
-              quote: { type: 'string' },
+              required: ['title', 'lead', 'infobox', 'sections', 'quote'],
+              additionalProperties: false,
             },
-            required: ['title', 'lead', 'infobox', 'sections', 'quote'],
-            additionalProperties: false,
           },
         },
-      },
-      system: 'Ты пишешь статью о человеке в стиле энциклопедии (как статья в Википедии), по-русски, в третьем лице. ' +
-        'Человек сам ответил на вопросы интервью; статья написана так, будто о нём уже рассказывают в интернете. ' +
-        'Тон — торжественный, вдохновляющий, немного приподнятый: подавай его путь как историю становления сильной личности. ' +
-        'Опирайся только на факты из ответов: можно ярко подать и обобщить, но не выдумывай даты, награды, имена, города и события, которых нет в ответах. ' +
-        'Иногда ссылайся на интервью («Как он признавался в интервью, …» / «По её собственным словам, …»), передавая слова близко к оригиналу. ' +
-        'title — имя человека. lead — вводный абзац 2–4 предложения: кто это и чем примечателен. ' +
-        'infobox — 4–6 строк досье (например: Имя, Род деятельности, Родом из, Известен/Известна, Ценности, Девиз) — только то, что следует из ответов. ' +
-        'sections — 3–5 разделов (например: «Ранние годы», «Путь и испытания», «Достижения», «Личность и ценности», «Планы на будущее»), по 1–2 абзаца, абзацы разделяй переводом строки. ' +
-        'quote — одна сильная цитата человека из его ответов (дословно или почти дословно).',
-      messages: [{
-        role: 'user',
-        content: `Имя: ${P.name || 'не указано'}\nПол: ${P.gender === 'f' ? 'женский' : P.gender === 'm' ? 'мужской' : 'не указан — пиши нейтрально'}\n` +
-          (P.identity ? `О себе в двух словах: ${P.identity}\n` : '') +
-          (goalsList().length ? `Цели: ${goalsList().join('; ')}\n` : '') +
-          `\nИнтервью:\n${P.bio}`,
-      }],
-    });
-    if (res.stop_reason === 'refusal') throw new Error('Claude отказался писать статью');
-    const data = JSON.parse(res.content.find(b => b.type === 'text')?.text || '{}');
+        system: ARTICLE_SYSTEM,
+        messages: [{ role: 'user', content: userText }],
+      });
+      if (res.stop_reason === 'refusal') throw new Error('Claude отказался писать статью');
+      data = JSON.parse(res.content.find(b => b.type === 'text')?.text || '{}');
+    } else {
+      const text = await freeChat(ARTICLE_SYSTEM + ' Пиши грамотным литературным русским языком. ' +
+        'Ответь ТОЛЬКО JSON-объектом, без пояснений и markdown: ' +
+        '{"title": "...", "lead": "...", "infobox": [{"label": "...", "value": "..."}], "sections": [{"heading": "...", "text": "..."}], "quote": "..."}',
+        [{ role: 'user', content: userText }]);
+      const m = text.match(/\{[\s\S]*\}/);
+      data = m ? JSON.parse(m[0]) : {};
+    }
     if (!data.title || !Array.isArray(data.sections)) throw new Error('пустой ответ');
+    data.infobox = Array.isArray(data.infobox) ? data.infobox.filter(r => r && r.label && r.value) : [];
+    data.sections = data.sections.filter(x => x && x.heading && x.text);
+    data.lead = data.lead || '';
+    data.quote = data.quote || '';
     P.article = { data, at: Date.now(), basedOn: P.interview.length };
     save();
     toast('Статья о тебе готова ✨');
@@ -1052,12 +1100,9 @@ function setConvoMode(on) {
 }
 
 function renderChat() {
-  const hasKey = !!P.apiKey.trim();
-  $('#chat-key').hidden = hasKey;
-  $('#partners').hidden = !hasKey || !!partner;
-  $('#convo-view').hidden = !hasKey || !partner;
-  setConvoMode(hasKey && !!partner && tab === 'chat');
-  if (!hasKey) return;
+  $('#partners').hidden = !!partner;
+  $('#convo-view').hidden = !partner;
+  setConvoMode(!!partner && tab === 'chat');
   if (!partner) {
     const sorted = [...PARTNERS].sort((a, b) => (chatOf(b.id).messages.at(-1)?.at || 0) - (chatOf(a.id).messages.at(-1)?.at || 0));
     $('#partners').innerHTML = sorted.map(p => {
@@ -1158,10 +1203,20 @@ async function sendChat(text) {
     for await (const ev of stream) { /* ответ показываем целиком, как пришедшее сообщение */ }
     return stream.finalMessage();
   };
+  // Бесплатный ИИ получает только текст: последние 30 сообщений, служебный контекст — у последнего
+  const runFree = async () => {
+    const hist = chat.messages.slice(-30).map((m, i, a) => ({
+      role: m.role,
+      content: m.role === 'user' && i === a.length - 1 ? m.content.map(b => b.text).join('\n') : msgText(m),
+    }));
+    const text = await freeChat(chat.system, hist);
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text }] };
+  };
 
   try {
     let msg;
-    try {
+    if (!P.apiKey.trim()) msg = await runFree();
+    else try {
       msg = await run();
     } catch (e) {
       // Разовое восстановление: если API не принял сохранённые рассуждения, убираем их и пробуем снова
@@ -1183,7 +1238,7 @@ async function sendChat(text) {
     $('#chat-input').value = text;
     bubble.remove();
     const why = e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
-      : e.status === 429 ? 'Слишком много запросов. Подожди минутку.'
+      : e.status === 429 ? 'Слишком много сообщений подряд. Подожди минутку.'
       : e.status === 400 && /credit|balance/i.test(e.message || '') ? 'На счёте Anthropic закончились деньги.'
       : e.status ? `Ошибка ${e.status}. Попробуй ещё раз.` : 'Нет связи. Проверь интернет.';
     list.insertAdjacentHTML('beforeend', `<div class="msg note">${why}</div>`);
@@ -1205,16 +1260,6 @@ $('#composer').addEventListener('submit', e => {
   $('#chat-input').value = '';
   growInput();
   sendChat(t);
-});
-$('#chat-key-save').addEventListener('click', () => {
-  const k = $('#chat-key-input').value.trim();
-  if (!k.startsWith('sk-ant-')) return toast('Ключ должен начинаться с sk-ant-');
-  P.apiKey = k;
-  M.queue = [];
-  save();
-  renderChat();
-  toast('Claude подключён ✨');
-  if (P.bioLocked && !P.article) makeArticle();
 });
 
 const growInput = () => {

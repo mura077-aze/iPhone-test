@@ -418,10 +418,6 @@ html[data-theme="lavender"] {
 
 /* ---------- Чаты: как настоящий мессенджер ---------- */
 .chip { border: 0; background: var(--fill); border-radius: 999px; padding: 8px 13px; font-size: 14px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
-.chat-key { background: var(--card); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
-.chat-key[hidden] { display: none; }
-.chat-key h3 { margin: 0; font-size: 22px; }
-.chat-key input { border: 0; border-radius: 12px; background: var(--fill); padding: 12px 14px; color: var(--text); -webkit-user-select: text; user-select: text; }
 
 .ava {
   flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; overflow: hidden;

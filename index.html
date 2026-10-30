@@ -74,14 +74,6 @@
     </section>
     <!-- Чаты с близкими (ИИ) -->
     <section id="tab-chat" class="tab">
-      <div class="chat-key" id="chat-key" hidden>
-        <span class="s-live s-big" aria-hidden="true"></span>
-        <h3>Подключи Claude</h3>
-        <p class="hint">Для чатов нужен ключ Anthropic API. Его можно создать на <b>console.anthropic.com</b> → API Keys. Использование оплачивается там же: обычный ответ стоит меньше цента. Ключ хранится только на этом телефоне.</p>
-        <input id="chat-key-input" type="password" placeholder="sk-ant-…" autocomplete="off">
-        <button type="button" class="primary big" id="chat-key-save">Подключить</button>
-      </div>
-
       <ul class="contacts" id="partners"></ul>
 
       <div id="convo-view" hidden>
@@ -145,8 +137,8 @@
         <p class="hint" id="slots-hint"></p>
 
         <details class="ai" id="ai-box">
-          <summary>🤖 Умные сообщения от Claude (необязательно)</summary>
-          <p class="hint">Без ключа сообщения собираются из шаблонов по твоему имени и целям. С ключом Anthropic API их пишет ИИ, который читает твою биографию целиком. Ключ хранится только на этом телефоне, а биография отправляется в Anthropic при генерации.</p>
+          <summary>🤖 Умный режим: Claude (необязательно, платно)</summary>
+          <p class="hint">Чаты и статья о тебе уже работают бесплатно — на бесплатном ИИ. Если вставить ключ Anthropic API, вместо него будет отвечать Claude: заметно умнее и живее, но оплачивается с твоего счёта Anthropic. Ключ хранится только на этом телефоне.</p>
           <label class="field">API-ключ
             <input name="apiKey" type="password" placeholder="sk-ant-…">
           </label>

@@ -6,7 +6,13 @@
 // Ответ:   { text: "..." }  или  { error: "..." }
 
 const ALLOWED_ORIGINS = ['https://mura077-aze.github.io'];
-const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash']; // первая — основная, остальные — запасные
+// Первая — основная, остальные — запасные (если основная перегружена или недоступна).
+// think: модель понимает thinkingLevel; 'minimal' — быстрые ответы в чате
+const MODELS = [
+  { id: 'gemini-3.5-flash', think: true },
+  { id: 'gemini-flash-lite-latest', think: true },
+  { id: 'gemini-flash-latest', think: false },
+];
 const MAX_BODY = 200_000;
 
 // Простое ограничение: не больше 20 запросов в минуту с одного адреса
@@ -52,16 +58,19 @@ export default {
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: String(m.content || '') }],
       })),
-      generationConfig: { temperature: 0.9, maxOutputTokens: 4096, ...(body.json ? { responseMimeType: 'application/json' } : {}) },
+      generationConfig: { temperature: 0.9, maxOutputTokens: 8192, ...(body.json ? { responseMimeType: 'application/json' } : {}) },
     };
     if (body.system) payload.systemInstruction = { parts: [{ text: String(body.system) }] };
 
     let last = '';
-    for (const model of env.MODEL ? [env.MODEL, ...MODELS] : MODELS) {
+    for (const { id: model, think } of MODELS) {
+      const generationConfig = think
+        ? { ...payload.generationConfig, thinkingConfig: { thinkingLevel: body.json ? 'low' : 'minimal' } }
+        : payload.generationConfig;
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, generationConfig }),
       });
       const data = await r.json().catch(() => ({}));
       if (r.ok) {
@@ -71,8 +80,8 @@ export default {
         continue;
       }
       last = data.error?.message || `HTTP ${r.status}`;
-      // Модель недоступна или исчерпан её лимит — пробуем запасную
-      if (r.status === 404 || r.status === 429) continue;
+      // Модель недоступна, перегружена или исчерпан её лимит — пробуем запасную
+      if ([404, 429, 500, 503].includes(r.status) || (r.status === 400 && /thinking/i.test(last))) continue;
       return reply({ error: last }, r.status, origin);
     }
     return reply({ error: last || 'no model answered' }, 429, origin);

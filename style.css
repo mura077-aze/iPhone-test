@@ -505,3 +505,6 @@ body.typing .composer { bottom: calc(8px + var(--kb, 0px)); }
 .contact-photo-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .contact-photo-btns .chip { background: var(--card); cursor: pointer; }
 .c-last.c-typing { color: var(--accent); }
+.m-ticks { margin-left: 3px; letter-spacing: -2px; }
+.m-ticks.read { color: inherit; opacity: 1; }
+.msg.user .m-time { opacity: .7; }

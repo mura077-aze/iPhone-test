@@ -72,34 +72,37 @@
       <ul class="list" id="habit-list"></ul>
       <p class="empty" id="habit-empty">Добавь привычку: вода, спорт, чтение… 💪</p>
     </section>
-    <!-- Чат с ИИ-партнёрами -->
+    <!-- Чаты с близкими (ИИ) -->
     <section id="tab-chat" class="tab">
       <div class="chat-key" id="chat-key" hidden>
         <span class="s-live s-big" aria-hidden="true"></span>
         <h3>Подключи Claude</h3>
-        <p class="hint">Для чата нужен ключ Anthropic API. Его можно создать на <b>console.anthropic.com</b> → API Keys. Использование оплачивается там же: обычный ответ стоит меньше цента. Ключ хранится только на этом телефоне.</p>
+        <p class="hint">Для чатов нужен ключ Anthropic API. Его можно создать на <b>console.anthropic.com</b> → API Keys. Использование оплачивается там же: обычный ответ стоит меньше цента. Ключ хранится только на этом телефоне.</p>
         <input id="chat-key-input" type="password" placeholder="sk-ant-…" autocomplete="off">
         <button type="button" class="primary big" id="chat-key-save">Подключить</button>
       </div>
 
-      <!-- Список партнёров -->
-      <div id="partners-view">
-        <p class="hint">Выбери, с кем поговорить. Каждый знает твою биографию и интервью, а переписка с ним сохраняется.</p>
-        <ul class="list partners" id="partners"></ul>
-      </div>
+      <ul class="contacts" id="partners"></ul>
 
-      <!-- Разговор -->
       <div id="convo-view" hidden>
         <div class="convo-head">
-          <button type="button" class="chip" id="convo-back">‹ Все</button>
-          <div class="convo-who"><span id="convo-emoji"></span><div><b id="convo-name"></b><span class="hint" id="convo-desc"></span></div></div>
-          <button type="button" class="chip" id="chat-new" aria-label="Очистить переписку">🗑</button>
+          <button type="button" class="convo-back" id="convo-back" aria-label="Назад">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button type="button" class="convo-who" id="convo-who">
+            <span class="ava" id="convo-ava"></span>
+            <span><b id="convo-name"></b><small id="convo-status">в сети</small></span>
+          </button>
+          <button type="button" class="convo-more" id="convo-more" aria-label="Настройки чата">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+          </button>
         </div>
         <div class="chat-list" id="chat-list"></div>
-        <div class="chat-starters" id="chat-starters"></div>
         <form class="composer" id="composer">
-          <textarea id="chat-input" rows="1" placeholder="Напиши что угодно…"></textarea>
-          <button type="submit" id="chat-send" aria-label="Отправить">↑</button>
+          <textarea id="chat-input" rows="1" placeholder="Сообщение"></textarea>
+          <button type="submit" id="chat-send" aria-label="Отправить">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+          </button>
         </form>
       </div>
     </section>
@@ -167,10 +170,10 @@
   <button class="fab" id="fab" aria-label="Добавить">+</button>
 
   <nav class="tabbar">
-    <button data-tab="tasks" class="on"><span>✅</span>Задачи</button>
-    <button data-tab="habits"><span>🔥</span>Привычки</button>
-    <button data-tab="chat"><span>💬</span>Чат</button>
-    <button data-tab="me"><span>🙂</span>Я</button>
+    <button data-tab="tasks" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M8 12.2l2.8 2.8L16.2 9.5"/></svg><em>Задачи</em></button>
+    <button data-tab="habits"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.2 2.2-5.3 3.6-7 .4 1.6 1.3 2.8 2.4 3.4C11.3 7.3 12.7 4.6 15 3c-.2 2.6.9 4.4 2.2 6 1.1 1.4 1.8 3 1.8 5 0 4-3.1 7-7 7z"/></svg><em>Привычки</em></button>
+    <button data-tab="chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 11.5c0 4.4-3.8 8-8.5 8-1.3 0-2.6-.3-3.7-.8L3.5 20l1.3-4c-.8-1.3-1.3-2.8-1.3-4.5 0-4.4 3.8-8 8.5-8s8.5 3.6 8.5 8z"/></svg><em>Чаты</em></button>
+    <button data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8.2" r="4"/><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg><em>Я</em></button>
   </nav>
 
   <!-- Окно добавления задачи -->
@@ -235,6 +238,32 @@
       <div class="actions">
         <button type="button" class="ghost" id="iv-back">Назад</button>
         <button type="button" class="primary" id="iv-next">Далее</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="contact-dlg" class="sheet">
+    <form method="dialog" id="contact-form">
+      <div class="contact-top">
+        <span class="ava big" id="contact-ava"></span>
+        <div class="contact-photo-btns">
+          <label class="chip">📷 Фото из галереи<input type="file" accept="image/*" id="contact-photo" hidden></label>
+          <button type="button" class="chip" id="contact-photo-reset">Убрать фото</button>
+        </div>
+      </div>
+      <label class="field">Как подписан контакт
+        <input name="cname" maxlength="30" placeholder="Например: Батя">
+      </label>
+      <div class="field">Обои в чатах
+        <div class="contact-photo-btns">
+          <label class="chip">🖼 Выбрать из галереи<input type="file" accept="image/*" id="wall-photo" hidden></label>
+          <button type="button" class="chip" id="wall-reset">Без обоев</button>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="danger" id="contact-clear">Очистить чат</button>
+        <button value="cancel" formnovalidate class="ghost">Отмена</button>
+        <button value="ok" class="primary">Готово</button>
       </div>
     </form>
   </dialog>

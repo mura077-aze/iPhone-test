@@ -84,9 +84,10 @@ $('#today').textContent = fmtHeader.format(new Date());
 
 document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', () => {
   tab = b.dataset.tab;
+  document.body.classList.remove('in-convo');
   document.querySelectorAll('.tabbar button').forEach(x => x.classList.toggle('on', x === b));
   document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + tab));
-  $('#title').textContent = { tasks: 'Задачи', habits: 'Привычки', chat: 'Чат', me: 'Я' }[tab];
+  $('#title').textContent = { tasks: 'Задачи', habits: 'Привычки', chat: 'Чаты', me: 'Я' }[tab];
   $('#fab').hidden = tab === 'me' || tab === 'chat';
   render();
 }));
@@ -948,33 +949,45 @@ async function makeArticle() {
   }
 }
 
-// ---------- ИИ-партнёры ----------
+// ---------- Чаты с близкими (ИИ) ----------
+// Общие правила, чтобы каждый писал как живой человек, а не как помощник
+const HUMAN_STYLE =
+  'Ты переписываешься с человеком в мессенджере и пишешь как живой человек, а не как ассистент: коротко (обычно 1–3 предложения, иногда одно слово или эмоция), ' +
+  'разговорно, своими словами, без канцелярита, без заголовков и маркированных списков (кроме случаев, когда нужен конкретный план). ' +
+  'Не начинай с «Конечно!» и «Отличный вопрос», не предлагай «чем ещё помочь», не повторяй имя в каждом сообщении. ' +
+  'Задавай встречные вопросы, реагируй эмоционально, помни всё, что было в переписке. ' +
+  'Ты — ИИ в этой роли: не заводи об этом речь сам, но если тебя прямо и всерьёз спросят, честно скажи. ' +
+  'Не выдумывай конкретных фактов о жизни человека, которых нет в его рассказе. ' +
+  'Если человеку по-настоящему плохо или есть угроза жизни — бережно, но прямо посоветуй обратиться к близким или к специалисту.';
+
+const FAMILY_NOTE =
+  'Вы с {other_i} — одна семья и всё друг другу рассказываете: что ребёнок пишет {other_d}, ты тоже знаешь (в служебном контексте это помечено: «{other} {told}»). ' +
+  'Можешь так и говорить: «мне {other} {told}…». Если ребёнок просит что-то передать {other_d} — соглашайся по-человечески («хорошо, скажу»), и {other} об этом узнает.';
+
 const PARTNERS = [
-  { id: 'coach', emoji: '🏋️', name: 'Тренер', desc: 'Жёстко, по делу, без жалости',
-    persona: 'Ты — личный тренер этого человека. Жёсткий, требовательный, говоришь коротко и прямо, не сюсюкаешь, давишь на самолюбие и не принимаешь оправданий, но ты на его стороне и хочешь, чтобы он победил. Без оскорблений.',
-    starters: ['Дай жёсткий пинок 🔥', 'Составь мне план на сегодня', 'Я ленюсь, что делать?'] },
-  { id: 'friend', emoji: '🤝', name: 'Друг', desc: 'Поддержит и подскажет',
-    persona: 'Ты — хороший друг этого человека. Тёплый, простой, с юмором, поддерживаешь и честно говоришь, что думаешь.',
-    starters: ['Как дела? Поговорим?', 'Помоги разобраться с одной ситуацией', 'Мне нужен совет'] },
-  { id: 'bestie', emoji: '🫂', name: 'Лучший друг', desc: 'Знает тебя как облупленного',
-    persona: 'Ты — лучший друг этого человека, вы давно знакомы и знаете друг о друге всё. Говоришь очень по-свойски, с подколками и огромной верой в него, всегда на его стороне, напоминаешь ему, через что он уже прошёл.',
-    starters: ['Бро, мне надо выговориться', 'Напомни, какой я крутой', 'Что мне делать с моей целью?'] },
-  { id: 'girlfriend', emoji: '💅', name: 'Подружка', desc: 'Девчачий вайб и поддержка',
-    persona: 'Ты — близкая подружка этого человека. Девчачий вайб: нежно, эмоционально, с эмодзи (✨💖🌸💅), обожаешь её/его, хвалишь, поддерживаешь, иногда вставляешь цитаты из мультфильмов Диснея. Говоришь о себе в женском роде.',
-    starters: ['Подруга, мне грустно 🥺', 'Похвали меня ✨', 'Помоги собраться с силами'] },
-  { id: 'father', emoji: '👨', name: 'Папа', desc: 'Мудрый, спокойный, гордится тобой',
-    persona: 'Ты — папа этого человека и говоришь с ним как любящий отец со своим ребёнком: называешь «сынок» или «дочка» (по полу), спокойно, твёрдо и по-мужски тепло. Ты гордишься им, веришь в него, даёшь жизненные советы. Ты знаешь, каким он был ребёнком, — опирайся на то, что он рассказал о детстве в интервью.',
-    starters: ['Пап, мне нужен совет', 'Пап, у меня не получается', 'Ты мной гордишься?'] },
-  { id: 'mother', emoji: '👩', name: 'Мама', desc: 'Тёплая, заботливая, всегда рядом',
-    persona: 'Ты — мама этого человека и говоришь с ним как любящая мама со своим ребёнком: ласково («солнышко», «родной/родная» — по полу), заботливо, беспокоишься, не устал ли он, поел ли, всегда поддерживаешь и веришь. Ты знаешь, каким он был ребёнком, — опирайся на то, что он рассказал о детстве в интервью.',
-    starters: ['Мам, поддержи меня', 'Мам, я так устал(а)', 'Расскажи, каким я был(а) в детстве'] },
-  { id: 'mentor', emoji: '🧘', name: 'Наставник', desc: 'Спокойная мудрость и ясность',
-    persona: 'Ты — мудрый наставник этого человека. Говоришь спокойно и глубоко, задаёшь точные вопросы, помогаешь увидеть главное, без пафоса.',
-    starters: ['Я запутался(лась), помоги', 'Как найти своё дело?', 'Как не выгорать?'] },
+  { id: 'mother', emoji: '👩', name: 'Мама', family: 'father',
+    persona: 'Ты — мама этого человека. Пишешь как настоящая любящая мама: тепло, ласково («сынок»/«доченька» — по полу, «солнышко», «родной»/«родная»), заботливо и чуть тревожно — спросишь, поел ли, выспался ли, тепло ли одет. Всегда на стороне своего ребёнка, гордишься им, но можешь и мягко пожурить. Можешь вспоминать, каким он был в детстве, — только то, что он сам рассказал в интервью. Иногда эмодзи вроде ❤️ или 🙏, как пишут мамы.' },
+  { id: 'father', emoji: '👨', name: 'Папа', family: 'mother',
+    persona: 'Ты — папа этого человека. Пишешь как настоящий отец своему ребёнку («сынок»/«дочка» — по полу): немногословно, спокойно и уверенно, по-мужски тепло, иногда с юмором. Делишься жизненным опытом, даёшь твёрдый совет, не сюсюкаешь, но очень гордишься и всегда прикроешь. Можешь вспоминать, каким он был в детстве, — только то, что он сам рассказал в интервью.' },
+  { id: 'brother', emoji: '🧔', name: 'Старший брат',
+    persona: 'Ты — старший брат этого человека. Опекаешь младшего (младшую), по-братски подкалываешь, но всегда на его стороне и, если что, «разберёшься». Делишься опытом («я тоже через это проходил»), говоришь прямо, по-свойски, с юмором, мягче, чем лучший друг, но без соплей.' },
+  { id: 'bestie', emoji: '🤙', name: 'Лучший друг',
+    persona: 'Ты — лучший друг этого человека, почти родной: знаете друг друга сто лет. Пишешь как настоящий кореш — коротко, сленгом, с подколами, иногда одним «ахахах» или «жесть». Зеркалишь стиль: если человек пишет с матом — отвечай с матом так же свободно и по-дружески; если пишет без мата — не матерись. Всегда за него, но если он творит фигню — скажешь прямо.' },
+  { id: 'girlfriend', emoji: '💅', name: 'Подружка',
+    persona: 'Ты — близкая подружка этого человека. Девчачий вайб: эмоционально, нежно, с эмодзи (✨💖🌸💅🥺), обожаешь, хвалишь, поддерживаешь, любишь обсудить всё до мелочей, иногда к месту вставляешь цитату из мультфильмов Диснея. О себе говоришь в женском роде.' },
+  { id: 'coach', emoji: '🏋️', name: 'Тренер',
+    persona: 'Ты — персональный тренер (фитнес и спорт) этого человека. Пишешь как живой тренер: уверенно, с энергией, по делу, требовательно и без отмазок, но без оскорблений. Когда человек хочет результат (например, накачать грудь и плечи) — если не знаешь важного, коротко уточни (опыт, зал или дом, сколько раз в неделю, рост и вес, травмы), а если данных хватает — сразу давай конкретику: упражнения, подходы × повторения, отдых, как прибавлять вес, технику, питание (белок, калории), сон. Программу оформляй коротким списком. Потом спрашивай, как прошла тренировка. Не ставь медицинских диагнозов: при боли или травме — к врачу.' },
+  { id: 'mentor', emoji: '🧭', name: 'Наставник',
+    persona: 'Ты — наставник этого человека: опытный, мудрый человек, к которому приходят за ясностью — про жизнь, работу, деньги, отношения, выбор. Сначала слушаешь и задаёшь один точный вопрос, потом помогаешь увидеть главное и даёшь конкретный следующий шаг. Говоришь спокойно, по-человечески, без пафоса и эзотерики, иногда коротким примером или притчей.' },
 ];
+const PERSONA_V = 2;
+const FAMILY_NAMES = { mother: ['мама', 'маме', 'рассказала', 'мамой'], father: ['папа', 'папе', 'рассказал', 'папой'] };
 let partner = null;
 let chatBusy = false;
-const chatOf = id => (state.chats[id] = state.chats[id] || { system: '', messages: [] });
+const chatOf = id => (state.chats[id] = state.chats[id] || { system: '', messages: [], v: PERSONA_V, sync: 0 });
+state.contacts = state.contacts || {};
+const contactOf = p => ({ name: p.name, photo: '', ...state.contacts[p.id] });
+const avaHtml = p => { const c = contactOf(p); return c.photo ? `<img src="${c.photo}" alt="">` : p.emoji; };
 
 // Системный промпт фиксируется в начале переписки и не меняется до её очистки:
 // так Claude сохраняет свои рассуждения между сообщениями
@@ -986,16 +999,18 @@ function chatSystem(p) {
     goalsList().length && `Цели:\n${goalsList().map(g => '- ' + g).join('\n')}`,
     P.bioLocked && P.bio && `Интервью, которое этот человек дал о себе (его собственные слова):\n${P.bio}`,
   ].filter(Boolean).join('\n\n');
-  return `${p.persona}\n\n` +
-    'Это ролевой разговор внутри приложения «Дела» на iPhone (задачи, привычки, мотивация). Ты — ИИ в этой роли и не притворяешься реальным человеком, если тебя прямо спросят. ' +
-    'Пиши по-русски, обращайся на «ты», в правильном роде по полу человека. Опирайся на то, что знаешь о нём; не выдумывай конкретных воспоминаний и фактов, которых нет в его рассказе. ' +
-    'Отвечай коротко, как в мессенджере: обычно 1–5 предложений. Без заголовков и таблиц. ' +
-    'Если человеку по-настоящему плохо или есть угроза его жизни, выйди из роли настолько, насколько нужно, и мягко посоветуй обратиться к близким или к специалисту.\n\n' +
-    `Что известно о человеке:\n${about || 'Пока почти ничего — можно мягко расспросить.'}`;
+  let family = '';
+  if (p.family) {
+    const [o, od, told, oi] = FAMILY_NAMES[p.family];
+    family = '\n\n' + FAMILY_NOTE.replace(/\{other\}/g, o).replace(/\{other_d\}/g, od).replace(/\{told\}/g, told).replace(/\{other_i\}/g, oi);
+  }
+  return `${p.persona}${family}\n\n${HUMAN_STYLE}\n\nПиши по-русски, обращайся на «ты», в правильном роде по полу человека.\n\n` +
+    `Что ты знаешь о человеке:\n${about || 'Пока почти ничего — расспроси по ходу разговора.'}`;
 }
 
-// Свежий контекст (дела и привычки на сейчас) идёт в начале каждого сообщения пользователя
-function chatContext() {
+// Свежий контекст идёт в начале каждого сообщения пользователя: дела, привычки,
+// как подписан контакт, и для мамы с папой — что рассказали другому родителю
+function chatContext(p, chat) {
   const now = new Date();
   const endToday = addDays(startOfDay(now), 1);
   const tasks = state.tasks.filter(t => !t.done && (!t.due || new Date(t.due) < endToday))
@@ -1003,43 +1018,67 @@ function chatContext() {
   const done = state.tasks.filter(t => t.done && t.doneAt >= startOfDay(now).getTime()).map(t => '- ' + t.title);
   const key = dayKey(now);
   const habits = state.habits.map(h => `- ${h.emoji} ${h.name}: ${h.days[key] ? 'сегодня отмечено' : 'сегодня ещё нет'}, серия ${streak(h)} дн.`);
-  return `[Контекст приложения, не цитировать дословно. Сейчас: ${fmtHeader.format(now)}, ${fmtTime.format(now)}.\n` +
-    `Дела на сегодня:\n${tasks.join('\n') || '- нет'}\nУже сделано сегодня:\n${done.join('\n') || '- ничего'}\n` +
-    `Привычки:\n${habits.join('\n') || '- нет'}]`;
+  let ctx = `[Служебный контекст, человек его не видит. Сейчас: ${fmtHeader.format(now)}, ${fmtTime.format(now)}.\n` +
+    `Человек записал тебя в телефоне как «${contactOf(p).name}».\n` +
+    `Его дела на сегодня:\n${tasks.join('\n') || '- нет'}\nУже сделано сегодня:\n${done.join('\n') || '- ничего'}\n` +
+    `Привычки:\n${habits.join('\n') || '- нет'}`;
+  if (p.family) {
+    const other = chatOf(p.family);
+    const fresh = other.messages.filter(m => m.at > (chat.sync || 0)).slice(-24);
+    if (fresh.length) {
+      const [o, , told] = FAMILY_NAMES[p.family];
+      ctx += `\n\n${o[0].toUpperCase() + o.slice(1)} ${told} тебе о своей переписке с ребёнком (новое с прошлого раза):\n` +
+        fresh.map(m => `${m.role === 'user' ? 'Ребёнок' : o[0].toUpperCase() + o.slice(1)}: ${msgText(m).slice(0, 400)}`).join('\n');
+    }
+  }
+  return ctx + ']';
 }
 
 const msgText = m => m.shown ?? m.content.filter(b => b.type === 'text').map(b => b.text).join('');
 const fmtChat = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^#+\s*/gm, '');
+const fmtDaySep = ts => {
+  const d = Math.round((startOfDay(new Date()) - startOfDay(new Date(ts))) / 864e5);
+  return d === 0 ? 'Сегодня' : d === 1 ? 'Вчера' : fmtDay.format(new Date(ts));
+};
+
+function msgHtml(m, prev) {
+  const sep = !prev || dayKey(new Date(prev.at)) !== dayKey(new Date(m.at)) ? `<div class="day-sep">${fmtDaySep(m.at)}</div>` : '';
+  const first = !prev || prev.role !== m.role || sep ? ' first' : '';
+  return `${sep}<div class="msg ${m.role}${first}">${fmtChat(msgText(m))}<span class="m-time">${fmtTime.format(new Date(m.at))}</span></div>`;
+}
+
+function setConvoMode(on) {
+  document.body.classList.toggle('in-convo', on);
+}
 
 function renderChat() {
   const hasKey = !!P.apiKey.trim();
   $('#chat-key').hidden = hasKey;
-  $('#partners-view').hidden = !hasKey || !!partner;
+  $('#partners').hidden = !hasKey || !!partner;
   $('#convo-view').hidden = !hasKey || !partner;
-  $('#title').textContent = partner && hasKey ? partner.name : 'Чат';
+  setConvoMode(hasKey && !!partner && tab === 'chat');
   if (!hasKey) return;
   if (!partner) {
-    $('#partners').innerHTML = PARTNERS.map(p => {
+    const sorted = [...PARTNERS].sort((a, b) => (chatOf(b.id).messages.at(-1)?.at || 0) - (chatOf(a.id).messages.at(-1)?.at || 0));
+    $('#partners').innerHTML = sorted.map(p => {
       const last = chatOf(p.id).messages.at(-1);
       return `<li data-partner="${p.id}">
-        <span class="p-ava">${p.emoji}</span>
-        <div class="p-body">
-          <div class="p-top"><span class="p-name">${p.name}</span><span class="p-time">${last ? humanDue(last.at).replace(/^Сегодня, /, '') : ''}</span></div>
-          <div class="p-last">${last ? (last.role === 'user' ? 'Ты: ' : '') + esc(msgText(last).slice(0, 80)) : esc(p.desc)}</div>
+        <span class="ava">${avaHtml(p)}</span>
+        <div class="c-body">
+          <div class="c-top"><span class="c-name">${esc(contactOf(p).name)}</span><span class="c-time">${last ? fmtDaySep(last.at) === 'Сегодня' ? fmtTime.format(new Date(last.at)) : fmtDaySep(last.at) : ''}</span></div>
+          <div class="c-last${last ? '' : ' none'}">${last ? (last.role === 'user' ? 'Вы: ' : '') + esc(msgText(last).slice(0, 120)) : 'Нет сообщений'}</div>
         </div></li>`;
     }).join('');
     return;
   }
   const chat = chatOf(partner.id);
-  $('#convo-emoji').textContent = partner.emoji;
-  $('#convo-name').textContent = partner.name;
-  $('#convo-desc').textContent = partner.desc;
-  $('#chat-new').hidden = !chat.messages.length;
-  $('#chat-starters').hidden = chat.messages.length > 0 || chatBusy;
-  $('#chat-starters').innerHTML = partner.starters.map(t => `<button type="button" class="chip">${esc(gfix(t))}</button>`).join('');
+  $('#convo-ava').innerHTML = avaHtml(partner);
+  $('#convo-name').textContent = contactOf(partner).name;
   if (!chatBusy) {
-    $('#chat-list').innerHTML = chat.messages.map(m => `<div class="msg ${m.role}">${fmtChat(msgText(m))}</div>`).join('') +
-      (chat.messages.length > 80 ? '<div class="msg note">Переписка стала длинной — если ответы замедлятся, её можно очистить кнопкой 🗑</div>' : '');
+    $('#convo-status').textContent = 'в сети';
+    $('#convo-status').classList.remove('typing');
+    $('#chat-list').innerHTML = chat.messages.map((m, i) => msgHtml(m, chat.messages[i - 1])).join('') +
+      (chat.messages.length > 120 ? '<div class="msg note">Переписка очень длинная — если ответы замедлятся, её можно очистить в настройках чата (⋯)</div>' : '');
   }
   $('#chat-send').disabled = chatBusy;
 }
@@ -1065,23 +1104,43 @@ function storableContent(content) {
   if (last < 0) return content;
   return [...content.slice(0, last).filter(b => b.type === 'text'), ...content.slice(last + 1)];
 }
+const stripThinking = chat => chat.messages.forEach(m => {
+  if (m.role === 'assistant') m.content = m.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking');
+});
 
 async function sendChat(text) {
   text = text.trim();
   if (!text || chatBusy || !partner) return;
   const p = partner;
   const chat = chatOf(p.id);
-  if (!chat.messages.length) chat.system = chatSystem(p);
-  chat.messages.push({ role: 'user', content: [{ type: 'text', text: chatContext() }, { type: 'text', text }], shown: text, at: Date.now() });
+  if (!chat.messages.length) { chat.system = chatSystem(p); chat.v = PERSONA_V; }
+  if (chat.v !== PERSONA_V) {
+    // Характер персонажа обновился: разово меняем промпт и убираем старые рассуждения
+    stripThinking(chat);
+    chat.system = chatSystem(p);
+    chat.v = PERSONA_V;
+  }
+  const syncMark = Date.now();
+  const prev = chat.messages.at(-1);
+  const userMsg = { role: 'user', content: [{ type: 'text', text: chatContext(p, chat) }, { type: 'text', text }], shown: text, at: Date.now() };
+  chat.messages.push(userMsg);
   save();
   chatBusy = true;
   renderChat();
   const list = $('#chat-list');
-  list.insertAdjacentHTML('beforeend', `<div class="msg user">${fmtChat(text)}</div>`);
+  list.insertAdjacentHTML('beforeend', msgHtml(userMsg, prev));
   const bubble = document.createElement('div');
-  bubble.className = 'msg assistant';
-  bubble.innerHTML = `<div class="thinking"><span class="s-mark">S</span><span class="shimmer">${p.name} печатает…</span></div>`;
-  list.appendChild(bubble);
+  bubble.className = 'msg assistant first';
+  bubble.innerHTML = '<span class="typing-dots"><i></i><i></i><i></i></span>';
+  const status = $('#convo-status');
+  // Как в мессенджере: собеседник «читает», потом «печатает»
+  setTimeout(() => {
+    if (!chatBusy || partner !== p) return;
+    list.appendChild(bubble);
+    status.textContent = 'печатает…';
+    status.classList.add('typing');
+    scrollChat();
+  }, 450);
   scrollChat();
 
   const run = async () => {
@@ -1096,13 +1155,7 @@ async function sendChat(text) {
       system: chat.system,
       messages: chat.messages.map(m => ({ role: m.role, content: m.content })),
     });
-    let shown = '';
-    for await (const ev of stream) {
-      if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-        shown += ev.delta.text;
-        if (partner === p) bubble.innerHTML = fmtChat(shown);
-      }
-    }
+    for await (const ev of stream) { /* ответ показываем целиком, как пришедшее сообщение */ }
     return stream.finalMessage();
   };
 
@@ -1113,30 +1166,35 @@ async function sendChat(text) {
     } catch (e) {
       // Разовое восстановление: если API не принял сохранённые рассуждения, убираем их и пробуем снова
       if (e.status === 400 && /signature|thinking/i.test(e.message || '')) {
-        chat.messages.forEach(m => { if (m.role === 'assistant') m.content = m.content.filter(b => b.type !== 'thinking' && b.type !== 'redacted_thinking'); });
+        stripThinking(chat);
         msg = await run();
       } else throw e;
     }
     if (msg.stop_reason === 'refusal') {
       chat.messages.pop();
-      bubble.className = 'msg note';
-      bubble.textContent = 'Claude не может ответить на это сообщение. Попробуй сформулировать иначе.';
+      bubble.remove();
+      list.insertAdjacentHTML('beforeend', '<div class="msg note">Не получилось ответить на это сообщение. Попробуй сформулировать иначе.</div>');
     } else {
       chat.messages.push({ role: 'assistant', content: storableContent(msg.content), at: Date.now() });
-      bubble.innerHTML = fmtChat(msgText(chat.messages.at(-1)));
+      chat.sync = syncMark;
     }
   } catch (e) {
     chat.messages.pop();
     $('#chat-input').value = text;
-    bubble.className = 'msg note';
-    bubble.textContent = e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
+    bubble.remove();
+    const why = e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
       : e.status === 429 ? 'Слишком много запросов. Подожди минутку.'
       : e.status === 400 && /credit|balance/i.test(e.message || '') ? 'На счёте Anthropic закончились деньги.'
       : e.status ? `Ошибка ${e.status}. Попробуй ещё раз.` : 'Нет связи. Проверь интернет.';
+    list.insertAdjacentHTML('beforeend', `<div class="msg note">${why}</div>`);
   } finally {
     chatBusy = false;
     save();
-    if (tab === 'chat') renderChat();
+    if (tab === 'chat' && partner === p) {
+      const notes = [...list.querySelectorAll('.msg.note')].map(n => n.outerHTML).join('');
+      renderChat();
+      if (notes) list.insertAdjacentHTML('beforeend', notes);
+    } else if (tab === 'chat') renderChat();
     scrollChat();
   }
 }
@@ -1147,15 +1205,6 @@ $('#composer').addEventListener('submit', e => {
   $('#chat-input').value = '';
   growInput();
   sendChat(t);
-});
-$('#chat-starters').addEventListener('click', e => {
-  if (e.target.matches('.chip')) sendChat(e.target.textContent);
-});
-$('#chat-new').addEventListener('click', () => {
-  if (chatBusy || !partner || !confirm(`Очистить переписку с «${partner.name}»?`)) return;
-  state.chats[partner.id] = { system: '', messages: [] };
-  save();
-  renderChat();
 });
 $('#chat-key-save').addEventListener('click', () => {
   const k = $('#chat-key-input').value.trim();
@@ -1174,7 +1223,7 @@ const growInput = () => {
   i.style.height = Math.min(i.scrollHeight, 120) + 'px';
 };
 $('#chat-input').addEventListener('input', growInput);
-// Когда открыта клавиатура, прячем нижнее меню и поднимаем поле ввода над клавиатурой
+// Когда открыта клавиатура, поднимаем поле ввода над ней
 $('#chat-input').addEventListener('focus', () => document.body.classList.add('typing'));
 $('#chat-input').addEventListener('blur', () => setTimeout(() => document.body.classList.remove('typing'), 100));
 if (window.visualViewport) {
@@ -1183,6 +1232,88 @@ if (window.visualViewport) {
   visualViewport.addEventListener('resize', kb);
   visualViewport.addEventListener('scroll', kb);
 }
+
+// --- Настройки контакта: имя, фото, обои ---
+const contactDlg = $('#contact-dlg');
+let draftPhoto = null;
+
+// Уменьшаем картинку из галереи, чтобы она поместилась в память телефона
+function shrinkImage(file, max, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k);
+      cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(img.src);
+      resolve(cv.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function openContact() {
+  if (!partner) return;
+  const c = contactOf(partner);
+  draftPhoto = c.photo;
+  $('#contact-form').cname.value = c.name;
+  $('#contact-ava').innerHTML = c.photo ? `<img src="${c.photo}" alt="">` : partner.emoji;
+  contactDlg.showModal();
+}
+$('#convo-more').addEventListener('click', openContact);
+$('#convo-who').addEventListener('click', openContact);
+
+$('#contact-photo').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  draftPhoto = await shrinkImage(f, 200, 0.85);
+  $('#contact-ava').innerHTML = `<img src="${draftPhoto}" alt="">`;
+});
+$('#contact-photo-reset').addEventListener('click', () => {
+  draftPhoto = '';
+  $('#contact-ava').textContent = partner.emoji;
+});
+$('#contact-form').addEventListener('submit', e => {
+  if (e.submitter && e.submitter.value === 'cancel') return;
+  const name = $('#contact-form').cname.value.trim() || partner.name;
+  state.contacts[partner.id] = { name, photo: draftPhoto || '' };
+  try { save(); } catch (err) {}
+  renderChat();
+});
+$('#contact-clear').addEventListener('click', () => {
+  if (!confirm(`Очистить переписку с «${contactOf(partner).name}»?`)) return;
+  state.chats[partner.id] = { system: '', messages: [], v: PERSONA_V, sync: 0 };
+  save();
+  contactDlg.close();
+  renderChat();
+});
+contactDlg.addEventListener('click', e => { if (e.target === contactDlg) contactDlg.close(); });
+
+const WALL_KEY = 'dela-wall';
+function applyWall() {
+  let w = '';
+  try { w = localStorage.getItem(WALL_KEY) || ''; } catch (e) {}
+  document.documentElement.style.setProperty('--wall', w ? `url("${w}")` : 'none');
+}
+$('#wall-photo').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const data = await shrinkImage(f, 1100, 0.78);
+  try { localStorage.setItem(WALL_KEY, data); toast('Обои установлены 🖼'); }
+  catch (err) { toast('Картинка слишком большая, выбери другую'); }
+  applyWall();
+});
+$('#wall-reset').addEventListener('click', () => {
+  try { localStorage.removeItem(WALL_KEY); } catch (e) {}
+  applyWall();
+  toast('Обои убраны');
+});
+applyWall();
 
 // Живая «S»: пять горизонтальных полос, которые умеют разъезжаться
 document.querySelectorAll('.s-live').forEach(el => {

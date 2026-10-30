@@ -23,7 +23,7 @@
 html, body { margin: 0; background: var(--bg); color: var(--text); }
 body {
   font: 500 17px/1.4 "Manrope", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  padding: env(safe-area-inset-top) 16px calc(90px + env(safe-area-inset-bottom));
+  padding: env(safe-area-inset-top) 16px calc(104px + env(safe-area-inset-bottom));
   min-height: 100vh;
   -webkit-user-select: none;
   user-select: none;
@@ -96,25 +96,29 @@ li.done .t-title { color: var(--muted); text-decoration: line-through; }
 
 /* Кнопки внизу */
 .fab {
-  position: fixed; right: 20px; bottom: calc(76px + env(safe-area-inset-bottom));
+  position: fixed; right: 20px; bottom: calc(92px + env(safe-area-inset-bottom));
   width: 58px; height: 58px; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent);
   font-size: 34px; line-height: 1; box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent); transition: transform .12s;
 }
 .fab:active { transform: scale(.9); }
 
 .tabbar {
-  position: fixed; left: 0; right: 0; bottom: 0; display: flex;
-  padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--card) 85%, transparent);
-  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
-  border-top: 1px solid var(--line);
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 10;
+  width: min(calc(100% - 32px), 420px); display: flex; gap: 4px; padding: 6px;
+  border-radius: 28px; border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5); backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 12px 34px var(--shadow), inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
 }
 .tabbar button {
-  flex: 1; border: 0; background: none; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px;
+  flex: 1; border: 0; background: none; color: var(--muted); padding: 7px 0 6px; border-radius: 22px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color .2s, background .25s;
 }
-.tabbar button span { font-size: 22px; filter: grayscale(1); opacity: .6; }
-.tabbar button.on { color: var(--accent); }
-.tabbar button.on span { filter: none; opacity: 1; }
+.tabbar svg { width: 23px; height: 23px; transition: transform .25s cubic-bezier(.3, 1.4, .5, 1); }
+.tabbar em { font: 500 10.5px/1 "Jost", "Manrope", sans-serif; font-style: normal; letter-spacing: .03em; }
+.tabbar button.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.tabbar button.on svg { transform: translateY(-1px) scale(1.06); stroke-width: 2; }
+.tabbar button:active svg { transform: scale(.88); }
 
 /* Нижние листы */
 dialog.sheet {
@@ -318,41 +322,6 @@ html[data-theme="lavender"] {
 .theme-dots { display: flex; gap: 4px; padding: 0 4px 4px; }
 .theme-dots span { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(128,128,128,.3); }
 
-/* ---------- Чат ---------- */
-.chip { border: 0; background: var(--fill); border-radius: 999px; padding: 7px 12px; font-size: 14px; font-weight: 600; white-space: nowrap; }
-.chat-top { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-bottom: 12px; }
-.chat-key { background: var(--card); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
-.chat-key[hidden] { display: none; }
-.chat-key .s-mark { font-size: 46px; margin: 4px auto; animation-duration: 4s; }
-.chat-key h3 { margin: 0; font-size: 22px; }
-.chat-key input { border: 0; border-radius: 12px; background: var(--fill); padding: 12px 14px; color: var(--text); -webkit-user-select: text; user-select: text; }
-.chat-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 80px; }
-.msg { max-width: 86%; padding: 10px 14px; border-radius: 18px; line-height: 1.45; overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); border-bottom-right-radius: 6px; }
-.msg.assistant { align-self: flex-start; background: var(--card); border-bottom-left-radius: 6px; }
-.msg.note { align-self: center; background: none; color: var(--muted); font-size: 13px; text-align: center; padding: 4px; }
-.msg .thinking { margin: 2px 0; }
-.msg .thinking .s-mark { font-size: 24px; }
-.chat-starters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.chat-starters .chip { background: var(--card); padding: 10px 14px; }
-.composer {
-  position: fixed; left: 12px; right: 12px; bottom: calc(66px + env(safe-area-inset-bottom)); z-index: 5;
-  display: flex; align-items: flex-end; gap: 8px; padding: 6px 6px 6px 14px; border-radius: 24px;
-  background: color-mix(in srgb, var(--card) 92%, transparent); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
-  box-shadow: 0 4px 20px var(--shadow); border: 1px solid var(--line);
-}
-.composer textarea {
-  flex: 1; border: 0; background: none; resize: none; padding: 8px 0; max-height: 120px; line-height: 1.35;
-  -webkit-user-select: text; user-select: text; outline: none;
-}
-.composer button {
-  flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent);
-  font-size: 20px; font-weight: 800; font-family: var(--font-num);
-}
-.composer button:disabled { opacity: .35; }
-body.typing .tabbar { display: none; }
-body.typing .composer { bottom: calc(10px + var(--kb, 0px)); }
-
 /* ---------- Живая «S»: дышит, плавится, рассыпается на полосы и разворачивается ---------- */
 .top { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 12px; }
 .top .s-live { grid-column: 2; grid-row: 1 / span 2; }
@@ -418,28 +387,6 @@ body.typing .composer { bottom: calc(10px + var(--kb, 0px)); }
 .gender button { border-color: color-mix(in srgb, var(--g) 45%, transparent); }
 .gender button.on { background: var(--g); border-color: var(--g); color: #1A1F2B; }
 
-/* ---------- Партнёры ---------- */
-#partners-view > .hint { margin: 0 4px 12px; }
-.partners li { cursor: pointer; }
-.p-ava {
-  flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-size: 24px;
-  background: color-mix(in srgb, var(--accent) 18%, var(--fill));
-}
-.p-body { flex: 1; min-width: 0; }
-.p-top { display: flex; justify-content: space-between; gap: 8px; }
-.p-name { font: 600 17px "Jost", "Manrope", sans-serif; }
-.p-time { font: 500 12px var(--font-num); color: var(--muted); white-space: nowrap; }
-.p-last { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.convo-head {
-  position: sticky; top: 0; z-index: 4; display: flex; align-items: center; gap: 10px; margin: 0 -16px 12px; padding: 8px 16px;
-  background: color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-}
-.convo-who { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.convo-who > span { font-size: 28px; }
-.convo-who b { display: block; font: 600 17px "Jost", "Manrope", sans-serif; }
-.convo-who .hint { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#convo-view[hidden], #partners-view[hidden] { display: none; }
-
 /* ---------- Статья о тебе (в стиле энциклопедии) ---------- */
 .wiki {
   background: var(--card); border-radius: 14px; padding: 16px; margin-bottom: 10px; font-weight: 400; color: var(--text);
@@ -468,4 +415,96 @@ body.typing .composer { bottom: calc(10px + var(--kb, 0px)); }
 .iv-raw summary { cursor: pointer; margin-bottom: 0; }
 .iv-raw[open] summary { margin-bottom: 10px; }
 .bio-start + .wiki, .bio-start + .bio-start, .wiki + .bio-locked, .bio-start + .bio-locked { margin-top: 10px; }
-.chat-starters[hidden], .composer[hidden] { display: none; }
+
+/* ---------- Чаты: как настоящий мессенджер ---------- */
+.chip { border: 0; background: var(--fill); border-radius: 999px; padding: 8px 13px; font-size: 14px; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.chat-key { background: var(--card); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; text-align: center; }
+.chat-key[hidden] { display: none; }
+.chat-key h3 { margin: 0; font-size: 22px; }
+.chat-key input { border: 0; border-radius: 12px; background: var(--fill); padding: 12px 14px; color: var(--text); -webkit-user-select: text; user-select: text; }
+
+.ava {
+  flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; overflow: hidden;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 30%, var(--fill)), var(--fill));
+}
+.ava img { width: 100%; height: 100%; object-fit: cover; }
+.ava.big { width: 84px; height: 84px; font-size: 42px; }
+
+.contacts { list-style: none; margin: 0 -16px; padding: 0; }
+.contacts[hidden] { display: none; }
+.contacts li { display: flex; align-items: center; gap: 13px; padding: 9px 16px; cursor: pointer; }
+.contacts li:active { background: var(--fill); }
+.c-body { flex: 1; min-width: 0; padding: 4px 0 11px; border-bottom: 1px solid var(--line); }
+.contacts li:last-child .c-body { border-bottom: 0; }
+.c-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.c-name { font: 600 17px "Jost", "Manrope", sans-serif; }
+.c-time { font: 500 12px var(--font-num); color: var(--muted); white-space: nowrap; }
+.c-last { margin-top: 3px; font-size: 14.5px; color: var(--muted); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.c-last.none { opacity: .6; }
+
+/* Внутри переписки: своя шапка, без общего меню и заголовка */
+body.in-convo .top, body.in-convo .tabbar, body.in-convo .fab { display: none; }
+/* Фон страницы рисует html, а body становится прозрачным, чтобы были видны обои */
+body.in-convo { background: transparent; padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+body.in-convo::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(color-mix(in srgb, var(--bg) 35%, transparent), color-mix(in srgb, var(--bg) 35%, transparent)), var(--wall, none) center / cover no-repeat;
+}
+#convo-view[hidden] { display: none; }
+.convo-head {
+  position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 6px;
+  margin: 0 -16px 10px; padding: calc(6px + env(safe-area-inset-top)) 8px 8px;
+  margin-top: calc(-1 * env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 7%, transparent);
+}
+.convo-back, .convo-more { border: 0; background: none; color: var(--accent); width: 40px; height: 40px; display: grid; place-items: center; padding: 0; }
+.convo-back svg, .convo-more svg { width: 24px; height: 24px; }
+.convo-who { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; border: 0; background: none; padding: 0; text-align: left; }
+.convo-who .ava { width: 40px; height: 40px; font-size: 20px; }
+.convo-who b { display: block; font: 600 17px/1.2 "Jost", "Manrope", sans-serif; }
+.convo-who small { display: block; font-size: 12.5px; color: var(--muted); }
+.convo-who small.typing { color: var(--accent); }
+
+.chat-list { display: flex; flex-direction: column; gap: 3px; padding: 4px 0 8px; }
+.msg {
+  position: relative; max-width: 80%; padding: 7px 11px 6px; border-radius: 9px; line-height: 1.42; font-size: 16.5px;
+  overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; white-space: pre-wrap;
+  box-shadow: 0 1px 1.5px var(--shadow); animation: msg-in .22s ease-out;
+}
+@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } }
+.msg.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); border-bottom-right-radius: 2px; }
+.msg.assistant { align-self: flex-start; background: var(--card); border-bottom-left-radius: 2px; }
+.msg.first { margin-top: 7px; }
+.msg .m-time { float: right; margin: 7px 0 -3px 10px; font: 500 11px var(--font-num); opacity: .55; white-space: nowrap; }
+.msg.note { align-self: center; background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--muted); font-size: 13px; text-align: center; border-radius: 8px; padding: 5px 10px; box-shadow: none; }
+.day-sep { align-self: center; margin: 10px 0 4px; padding: 3px 10px; border-radius: 8px; font: 600 12px "Jost", sans-serif;
+  background: color-mix(in srgb, var(--card) 80%, transparent); color: var(--muted); }
+.typing-dots { display: inline-flex; gap: 4px; padding: 6px 2px; }
+.typing-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: dot 1.2s infinite ease-in-out; }
+.typing-dots i:nth-child(2) { animation-delay: .15s; }
+.typing-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+.composer {
+  position: fixed; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 6;
+  display: flex; align-items: flex-end; gap: 8px; padding: 5px 5px 5px 15px; border-radius: 22px;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4); backdrop-filter: blur(22px) saturate(1.4);
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent); box-shadow: 0 6px 22px var(--shadow);
+}
+.composer textarea { flex: 1; border: 0; background: none; resize: none; padding: 8px 0; max-height: 120px; line-height: 1.35;
+  -webkit-user-select: text; user-select: text; outline: none; }
+.composer button { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center; padding: 0; transition: transform .15s, opacity .15s; }
+.composer button svg { width: 19px; height: 19px; }
+.composer button:disabled { opacity: .35; }
+.composer button:active { transform: scale(.88); }
+body.typing .composer { bottom: calc(8px + var(--kb, 0px)); }
+
+/* Настройки контакта */
+.contact-top { display: flex; align-items: center; gap: 14px; }
+.contact-photo-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.contact-photo-btns .chip { background: var(--card); cursor: pointer; }

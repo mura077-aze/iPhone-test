@@ -409,7 +409,21 @@ const FREE_URL = 'https://text.pollinations.ai/openai';
 const FREE_RU = '\n\nПиши грамотным, естественным русским языком, как носитель языка: простые фразы, без кальки с английского и странных оборотов. ' +
   'Никогда не говори обидного и не предсказывай плохого.';
 
-async function freeChat(system, messages) {
+// Адрес посредника Gemini на Cloudflare (worker/gemini-proxy.js). Пока пусто — работает только запасной вариант
+const GEMINI_PROXY = '';
+
+async function freeChat(system, messages, json = false) {
+  if (GEMINI_PROXY) {
+    try {
+      const r = await fetch(GEMINI_PROXY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system: system + FREE_RU, messages, json }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.text) return data.text;
+    } catch (e) { /* ниже — запасной бесплатный ИИ */ }
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 45e3);
@@ -977,7 +991,7 @@ async function makeArticle() {
       const text = await freeChat(ARTICLE_SYSTEM + ' Пиши грамотным литературным русским языком. ' +
         'Ответь ТОЛЬКО JSON-объектом, без пояснений и markdown: ' +
         '{"title": "...", "lead": "...", "infobox": [{"label": "...", "value": "..."}], "sections": [{"heading": "...", "text": "..."}], "quote": "..."}',
-        [{ role: 'user', content: userText }]);
+        [{ role: 'user', content: userText }], true);
       const m = text.match(/\{[\s\S]*\}/);
       data = m ? JSON.parse(m[0]) : {};
     }

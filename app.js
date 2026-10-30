@@ -13,7 +13,8 @@ function load() {
 }
 function withDefaults(s) {
   s.profile = { name: '', identity: '', goals: '', bio: '', tone: 'friend', from: 9, to: 21, apiKey: '', saved: false,
-    interview: [], bioLocked: false, bioDate: 0, ivDraft: {}, gender: '', ivAsked: [], article: null, ...s.profile };
+    interview: [], bioLocked: false, bioDate: 0, ivDraft: {}, gender: '', ivAsked: [], article: null,
+    surname: '', email: '', registered: false, ...s.profile };
   s.moti = { current: null, hidden: false, lastSlot: 0, queue: [], history: [], ...s.moti };
   s.customTheme = { bg: '#1E1B2E', accent: '#E8A0B4', ...s.customTheme };
   s.chats = s.chats || {};
@@ -646,7 +647,7 @@ $('#moti-close').addEventListener('click', () => { M.hidden = true; save(); rend
 const meForm = $('#me-form');
 
 function renderMe() {
-  for (const k of ['name', 'identity', 'goals', 'tone', 'from', 'to', 'apiKey']) {
+  for (const k of ['name', 'surname', 'email', 'identity', 'goals', 'tone', 'from', 'to', 'apiKey']) {
     if (document.activeElement !== meForm[k]) meForm[k].value = P[k];
   }
   if (P.apiKey) $('#ai-box').open = true;
@@ -681,8 +682,10 @@ meForm.to.addEventListener('input', slotsHint);
 meForm.addEventListener('submit', e => {
   e.preventDefault();
   const first = !P.saved;
+  const email = meForm.email.value.trim();
+  if (email && !EMAIL_RE.test(email)) { meForm.email.focus(); return toast('Проверь почту — похоже, в ней ошибка'); }
   const before = JSON.stringify([P.name, P.identity, P.goals, P.tone]);
-  for (const k of ['name', 'identity', 'goals', 'tone', 'apiKey']) P[k] = meForm[k].value.trim();
+  for (const k of ['name', 'surname', 'email', 'identity', 'goals', 'tone', 'apiKey']) P[k] = meForm[k].value.trim();
   P.from = +meForm.from.value || 0;
   P.to = +meForm.to.value || 0;
   P.saved = true;
@@ -1531,6 +1534,77 @@ function paintLetters() {
 }
 paintLetters();
 
+// ---------- Регистрация (первый запуск) ----------
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const obForm = $('#ob-form');
+let obGender = '';
+
+function showOnboarding() {
+  obForm.name.value = P.name;
+  obForm.surname.value = P.surname;
+  obForm.email.value = P.email;
+  obGender = P.gender;
+  markObGender();
+  obLetter();
+  $('#onboard').hidden = false;
+}
+
+// Буква сверху меняется прямо во время ввода имени
+function obLetter() {
+  const was = P.name;
+  P.name = obForm.name.value;
+  const L = brandLetter();
+  P.name = was;
+  $('#ob-letter').querySelectorAll('.s-core span').forEach(x => { x.textContent = L; });
+}
+obForm.name.addEventListener('input', obLetter);
+
+const markObGender = () => document.querySelectorAll('#ob-gender button').forEach(b => b.classList.toggle('on', b.dataset.g === obGender));
+$('#ob-gender').addEventListener('click', e => {
+  const b = e.target.closest('[data-g]');
+  if (!b) return;
+  obGender = b.dataset.g;
+  markObGender();
+  $('#ob-err').textContent = '';
+  buzz();
+});
+obForm.addEventListener('input', e => {
+  e.target.closest('.ob-field')?.classList.remove('bad');
+  $('#ob-err').textContent = '';
+});
+
+// Enter в поле — переход к следующему
+obForm.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const order = [obForm.name, obForm.surname, obForm.email];
+  const i = order.indexOf(e.target);
+  if (i >= 0 && i < order.length - 1) { e.preventDefault(); order[i + 1].focus(); }
+});
+
+obForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const name = obForm.name.value.trim();
+  const email = obForm.email.value.trim();
+  obForm.querySelectorAll('.ob-field').forEach(f => f.classList.remove('bad'));
+  const fail = (input, msg) => { input.closest('.ob-field').classList.add('bad'); input.focus(); $('#ob-err').textContent = msg; };
+  if (!name) return fail(obForm.name, 'Напиши, как тебя зовут');
+  if (email && !EMAIL_RE.test(email)) return fail(obForm.email, 'Проверь почту — похоже, в ней ошибка');
+  if (!obGender) { $('#ob-err').textContent = 'Выбери, кто ты — так тексты будут в правильном роде'; return; }
+  $('#ob-err').textContent = '';
+  const first = !P.saved;
+  Object.assign(P, { name, surname: obForm.surname.value.trim(), email, gender: obGender, registered: true, saved: true });
+  M.queue = [];
+  if (first) M.lastSlot = currentSlot();
+  save();
+  document.activeElement.blur();
+  paintLetters();
+  $('#onboard').classList.add('gone');
+  setTimeout(() => { $('#onboard').hidden = true; $('#onboard').classList.remove('gone'); }, 450);
+  toast(gfix(`Добро пожаловать, ${name} ✨`));
+  render();
+  if (first) deliverMotivation();
+});
+
 // ---------- Старт ----------
 function render() {
   if (tab === 'tasks') { renderMoti(); renderTasks(); }
@@ -1541,6 +1615,7 @@ function render() {
 
 applyTheme();
 render();
+if (!P.registered) showOnboarding();
 setTimeout(() => $('#splash').classList.add('gone'), 1100);
 updateBadge();
 checkDue();

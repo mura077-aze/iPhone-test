@@ -44,6 +44,33 @@
     </filter>
   </svg>
   <div class="splash" id="splash" aria-hidden="true"><span class="s-live s-big"></span></div>
+
+  <!-- Регистрация: первый запуск -->
+  <div class="onboard" id="onboard" hidden>
+    <form class="ob-card" id="ob-form" novalidate autocomplete="on">
+      <span class="s-live s-big ob-letter" id="ob-letter" aria-hidden="true"></span>
+      <h1 class="ob-title">Добро пожаловать</h1>
+      <p class="ob-sub">Давай познакомимся — и приложение станет по-настоящему твоим</p>
+      <div class="ob-fields">
+        <label class="ob-field"><span>Имя</span>
+          <input name="name" autocomplete="given-name" placeholder="Как тебя зовут?" enterkeyhint="next">
+        </label>
+        <label class="ob-field"><span>Фамилия</span>
+          <input name="surname" autocomplete="family-name" placeholder="Необязательно" enterkeyhint="next">
+        </label>
+        <label class="ob-field"><span>Почта</span>
+          <input name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@gmail.com" enterkeyhint="done">
+        </label>
+      </div>
+      <p class="hint ob-hint">Почта пригодится для напоминаний о задачах — их можно будет включить позже.</p>
+      <div class="gender" id="ob-gender">
+        <button type="button" data-g="m" class="g-m">👨 Мужчина</button>
+        <button type="button" data-g="f" class="g-f">👩 Женщина</button>
+      </div>
+      <p class="ob-err" id="ob-err"></p>
+      <button class="primary big ob-go" type="submit">Начать</button>
+    </form>
+  </div>
   <header class="top">
     <div class="date" id="today"></div>
     <h1 id="title">Задачи</h1>
@@ -113,6 +140,12 @@
         <p class="hint">Расскажи о себе — и каждые 3 часа приложение будет напоминать тебе, кто ты на самом деле.</p>
         <label class="field">Как тебя зовут
           <input name="name" placeholder="Например: Саша">
+        </label>
+        <label class="field">Фамилия
+          <input name="surname" placeholder="Например: Иванов" autocomplete="family-name">
+        </label>
+        <label class="field">Почта
+          <input name="email" type="email" inputmode="email" placeholder="name@gmail.com" autocomplete="email">
         </label>
         <div class="field">Ты
           <input type="hidden" name="gender">

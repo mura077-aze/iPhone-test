@@ -504,3 +504,4 @@ body.typing .composer { bottom: calc(8px + var(--kb, 0px)); }
 .contact-top { display: flex; align-items: center; gap: 14px; }
 .contact-photo-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .contact-photo-btns .chip { background: var(--card); cursor: pointer; }
+.c-last.c-typing { color: var(--accent); }

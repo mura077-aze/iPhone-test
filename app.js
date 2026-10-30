@@ -414,19 +414,29 @@ const GEMINI_PROXY = 'https://dela-ai.s7402731.workers.dev/';
 
 async function freeChat(system, messages, json = false) {
   if (GEMINI_PROXY) {
-    try {
-      const r = await fetch(GEMINI_PROXY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ system: system + FREE_RU, messages, json }),
-      });
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data.text) return data.text;
-    } catch (e) { /* ниже — запасной бесплатный ИИ */ }
+    // Две попытки по 25 секунд: обычно Gemini отвечает за 1–5 секунд
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25e3);
+      try {
+        const r = await fetch(GEMINI_PROXY, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system: system + FREE_RU, messages, json }),
+          signal: ctrl.signal,
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.text) return data.text;
+        if (r.status === 400 || r.status === 413) break;
+      } catch (e) { /* таймаут или нет связи — пробуем ещё раз */ } finally {
+        clearTimeout(timer);
+      }
+    }
   }
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // Запасной бесплатный ИИ: одна попытка
+  for (let attempt = 1; attempt < 2; attempt++) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 45e3);
+    const timer = setTimeout(() => ctrl.abort(), 30e3);
     try {
       const r = await fetch(FREE_URL, {
         method: 'POST',
@@ -1045,7 +1055,9 @@ const PARTNERS = [
 const PERSONA_V = 2;
 const FAMILY_NAMES = { mother: ['мама', 'маме', 'рассказала', 'мамой'], father: ['папа', 'папе', 'рассказал', 'папой'] };
 let partner = null;
-let chatBusy = false;
+// Чаты, в которых сейчас ждём ответ, и разовые служебные заметки (ошибки) под перепиской
+const busy = new Set();
+const chatNotes = {};
 const chatOf = id => (state.chats[id] = state.chats[id] || { system: '', messages: [], v: PERSONA_V, sync: 0 });
 state.contacts = state.contacts || {};
 const contactOf = p => ({ name: p.name, photo: '', ...state.contacts[p.id] });
@@ -1125,7 +1137,8 @@ function renderChat() {
         <span class="ava">${avaHtml(p)}</span>
         <div class="c-body">
           <div class="c-top"><span class="c-name">${esc(contactOf(p).name)}</span><span class="c-time">${last ? fmtDaySep(last.at) === 'Сегодня' ? fmtTime.format(new Date(last.at)) : fmtDaySep(last.at) : ''}</span></div>
-          <div class="c-last${last ? '' : ' none'}">${last ? (last.role === 'user' ? 'Вы: ' : '') + esc(msgText(last).slice(0, 120)) : 'Нет сообщений'}</div>
+          ${busy.has(p.id) ? '<div class="c-last c-typing">печатает…</div>'
+            : `<div class="c-last${last ? '' : ' none'}">${last ? (last.role === 'user' ? 'Вы: ' : '') + esc(msgText(last).slice(0, 120)) : 'Нет сообщений'}</div>`}
         </div></li>`;
     }).join('');
     return;
@@ -1133,17 +1146,17 @@ function renderChat() {
   const chat = chatOf(partner.id);
   $('#convo-ava').innerHTML = avaHtml(partner);
   $('#convo-name').textContent = contactOf(partner).name;
-  if (!chatBusy) {
-    $('#convo-status').textContent = 'в сети';
-    $('#convo-status').classList.remove('typing');
-    $('#chat-list').innerHTML = chat.messages.map((m, i) => msgHtml(m, chat.messages[i - 1])).join('') +
-      (chat.messages.length > 120 ? '<div class="msg note">Переписка очень длинная — если ответы замедлятся, её можно очистить в настройках чата (⋯)</div>' : '');
-  }
-  $('#chat-send').disabled = chatBusy;
+  const typing = busy.has(partner.id);
+  $('#convo-status').textContent = typing ? 'печатает…' : 'в сети';
+  $('#convo-status').classList.toggle('typing', typing);
+  $('#chat-list').innerHTML = chat.messages.map((m, i) => msgHtml(m, chat.messages[i - 1])).join('') +
+    (typing ? '<div class="msg assistant first"><span class="typing-dots"><i></i><i></i><i></i></span></div>' : '') +
+    (chatNotes[partner.id] ? `<div class="msg note">${chatNotes[partner.id]}</div>` : '') +
+    (chat.messages.length > 120 ? '<div class="msg note">Переписка очень длинная — если ответы замедлятся, её можно очистить в настройках чата (⋯)</div>' : '');
+  $('#chat-send').disabled = typing;
 }
 
 function openPartner(id) {
-  if (chatBusy) return;
   partner = PARTNERS.find(p => p.id === id) || null;
   renderChat();
   window.scrollTo(0, partner ? document.body.scrollHeight : 0);
@@ -1169,9 +1182,10 @@ const stripThinking = chat => chat.messages.forEach(m => {
 
 async function sendChat(text) {
   text = text.trim();
-  if (!text || chatBusy || !partner) return;
+  if (!text || !partner || busy.has(partner.id)) return;
   const p = partner;
   const chat = chatOf(p.id);
+  delete chatNotes[p.id];
   if (!chat.messages.length) { chat.system = chatSystem(p); chat.v = PERSONA_V; }
   if (chat.v !== PERSONA_V) {
     // Характер персонажа обновился: разово меняем промпт и убираем старые рассуждения
@@ -1180,27 +1194,11 @@ async function sendChat(text) {
     chat.v = PERSONA_V;
   }
   const syncMark = Date.now();
-  const prev = chat.messages.at(-1);
-  const userMsg = { role: 'user', content: [{ type: 'text', text: chatContext(p, chat) }, { type: 'text', text }], shown: text, at: Date.now() };
-  chat.messages.push(userMsg);
+  chat.messages.push({ role: 'user', content: [{ type: 'text', text: chatContext(p, chat) }, { type: 'text', text }], shown: text, at: Date.now() });
   save();
-  chatBusy = true;
-  renderChat();
-  const list = $('#chat-list');
-  list.insertAdjacentHTML('beforeend', msgHtml(userMsg, prev));
-  const bubble = document.createElement('div');
-  bubble.className = 'msg assistant first';
-  bubble.innerHTML = '<span class="typing-dots"><i></i><i></i><i></i></span>';
-  const status = $('#convo-status');
-  // Как в мессенджере: собеседник «читает», потом «печатает»
-  setTimeout(() => {
-    if (!chatBusy || partner !== p) return;
-    list.appendChild(bubble);
-    status.textContent = 'печатает…';
-    status.classList.add('typing');
-    scrollChat();
-  }, 450);
-  scrollChat();
+  busy.add(p.id);
+  const here = () => tab === 'chat' && partner === p;
+  if (here()) { renderChat(); scrollChat(); }
 
   const run = async () => {
     const { default: Anthropic } = await import(SDK_URL);
@@ -1241,31 +1239,25 @@ async function sendChat(text) {
     }
     if (msg.stop_reason === 'refusal') {
       chat.messages.pop();
-      bubble.remove();
-      list.insertAdjacentHTML('beforeend', '<div class="msg note">Не получилось ответить на это сообщение. Попробуй сформулировать иначе.</div>');
+      chatNotes[p.id] = 'Не получилось ответить на это сообщение. Попробуй сформулировать иначе.';
     } else {
       chat.messages.push({ role: 'assistant', content: storableContent(msg.content), at: Date.now() });
       chat.sync = syncMark;
     }
   } catch (e) {
     chat.messages.pop();
-    $('#chat-input').value = text;
-    bubble.remove();
-    const why = !P.apiKey.trim() ? 'Бесплатный ИИ сейчас перегружен и не ответил. Попробуй ещё раз через минуту.'
+    if (here() && !$('#chat-input').value) $('#chat-input').value = text;
+    chatNotes[p.id] = !P.apiKey.trim() ? 'Бесплатный ИИ сейчас перегружен и не ответил. Попробуй ещё раз через минуту.'
       : e.status === 401 ? 'Ключ API не подошёл. Проверь его во вкладке «Я».'
       : e.status === 429 ? 'Слишком много сообщений подряд. Подожди минутку.'
       : e.status === 400 && /credit|balance/i.test(e.message || '') ? 'На счёте Anthropic закончились деньги.'
       : e.status ? `Ошибка ${e.status}. Попробуй ещё раз.` : 'Нет связи. Проверь интернет.';
-    list.insertAdjacentHTML('beforeend', `<div class="msg note">${why}</div>`);
   } finally {
-    chatBusy = false;
+    busy.delete(p.id);
     save();
-    if (tab === 'chat' && partner === p) {
-      const notes = [...list.querySelectorAll('.msg.note')].map(n => n.outerHTML).join('');
-      renderChat();
-      if (notes) list.insertAdjacentHTML('beforeend', notes);
-    } else if (tab === 'chat') renderChat();
-    scrollChat();
+    // Обновляем экран, только если человек смотрит на чаты; ответ в любом случае сохранён
+    if (tab === 'chat') renderChat();
+    if (here()) scrollChat();
   }
 }
 
@@ -1345,6 +1337,7 @@ $('#contact-form').addEventListener('submit', e => {
   renderChat();
 });
 $('#contact-clear').addEventListener('click', () => {
+  if (busy.has(partner.id)) return toast('Подожди, пока придёт ответ');
   if (!confirm(`Очистить переписку с «${contactOf(partner).name}»?`)) return;
   state.chats[partner.id] = { system: '', messages: [], v: PERSONA_V, sync: 0 };
   save();

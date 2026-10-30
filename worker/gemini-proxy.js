@@ -1,10 +1,11 @@
 // Бесплатный посредник между приложением «Дела» и Google Gemini.
-// Разворачивается на Cloudflare Workers. Ключ Gemini хранится в секрете GEMINI_KEY
-// (Settings → Variables and Secrets), в коде и в репозитории его нет.
+// Разворачивается на Cloudflare Workers. Ключ Gemini — в секрете GEMINI_KEY или в константе ниже
+// (только в копии кода на Cloudflare: в репозиторий ключ не попадает).
 //
 // Запрос:  POST { system: "...", messages: [{ role: "user" | "assistant", content: "..." }], json?: true }
 // Ответ:   { text: "..." }  или  { error: "..." }
 
+const GEMINI_KEY = '';
 const ALLOWED_ORIGINS = ['https://mura077-aze.github.io'];
 // Первая — основная, остальные — запасные (если основная перегружена или недоступна).
 // think: модель понимает thinkingLevel; 'minimal' — быстрые ответы в чате
@@ -39,11 +40,12 @@ const reply = (data, status, origin) =>
 
 export default {
   async fetch(request, env) {
+    const key = env.GEMINI_KEY || GEMINI_KEY;
     const origin = request.headers.get('Origin') || '';
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors(origin) });
     if (request.method !== 'POST') return reply({ error: 'POST only' }, 405, origin);
     if (!ALLOWED_ORIGINS.includes(origin)) return reply({ error: 'origin not allowed' }, 403, origin);
-    if (!env.GEMINI_KEY) return reply({ error: 'GEMINI_KEY is not set' }, 500, origin);
+    if (!key) return reply({ error: 'GEMINI_KEY is not set' }, 500, origin);
     if (tooMany(request.headers.get('CF-Connecting-IP') || 'x')) return reply({ error: 'rate limited' }, 429, origin);
 
     const raw = await request.text();
@@ -69,7 +71,7 @@ export default {
         : payload.generationConfig;
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_KEY },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify({ ...payload, generationConfig }),
       });
       const data = await r.json().catch(() => ({}));

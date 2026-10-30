@@ -409,8 +409,8 @@ const FREE_URL = 'https://text.pollinations.ai/openai';
 const FREE_RU = '\n\nПиши грамотным, естественным русским языком, как носитель языка: простые фразы, без кальки с английского и странных оборотов. ' +
   'Никогда не говори обидного и не предсказывай плохого.';
 
-// Адрес посредника Gemini на Cloudflare (worker/gemini-proxy.js). Пока пусто — работает только запасной вариант
-const GEMINI_PROXY = '';
+// Адрес посредника Gemini на Cloudflare (worker/gemini-proxy.js). Если он не ответит — запасной бесплатный ИИ
+const GEMINI_PROXY = 'https://dela-ai.s7402731.workers.dev/';
 
 async function freeChat(system, messages, json = false) {
   if (GEMINI_PROXY) {

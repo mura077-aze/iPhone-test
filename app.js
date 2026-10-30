@@ -15,6 +15,7 @@ function withDefaults(s) {
   s.profile = { name: '', identity: '', goals: '', bio: '', tone: 'friend', from: 9, to: 21, apiKey: '', saved: false,
     interview: [], bioLocked: false, bioDate: 0, ivDraft: {}, gender: '', ivAsked: [], article: null, ...s.profile };
   s.moti = { current: null, hidden: false, lastSlot: 0, queue: [], history: [], ...s.moti };
+  s.customTheme = { bg: '#1E1B2E', accent: '#E8A0B4', ...s.customTheme };
   s.chats = s.chats || {};
   delete s.chat;
   return s;
@@ -745,10 +746,50 @@ const THEMES = [
   { id: 'lavender',  name: 'Лаванда и графит', colors: ['#1C1B22', '#26252F', '#B8A7E6'] },
 ];
 
+// --- Свой цвет: человек выбирает фон и акцент, остальные оттенки считаем сами ---
+const CUSTOM_BG = ['#14203A', '#1E1B2E', '#0F1F1C', '#2A1F1A', '#111111', '#F7F3EC', '#FFF6F4', '#F1F5F9', '#EEF3EA', '#FFFFFF'];
+const CUSTOM_ACCENT = ['#F5B841', '#E8A0B4', '#8FB8E8', '#9FC9A3', '#C9A961', '#B8A7E6', '#E58B6D', '#6FC3C0', '#F4F4F5', '#2D2D2D'];
+
+const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const rgbHex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const mixHex = (a, b, k) => { const x = hexRgb(a), y = hexRgb(b); return rgbHex(x.map((v, i) => v + (y[i] - v) * k)); };
+const luma = h => { const [r, g, b] = hexRgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+
+function customVars(bg, accent) {
+  const dark = luma(bg) < 0.35;
+  const text = dark ? '#F3F4F7' : mixHex(bg, '#000000', 0.86);
+  const card = dark ? mixHex(bg, '#FFFFFF', 0.07) : mixHex(bg, '#FFFFFF', 0.75);
+  return {
+    '--bg': bg, '--card': card, '--text': text,
+    '--muted': mixHex(text, bg, 0.45),
+    '--line': dark ? mixHex(bg, '#FFFFFF', 0.11) : mixHex(bg, '#000000', 0.08),
+    '--fill': dark ? mixHex(bg, '#FFFFFF', 0.13) : mixHex(bg, '#000000', 0.05),
+    '--accent': accent,
+    '--on-accent': luma(accent) > 0.45 ? mixHex(bg, '#000000', dark ? 0.2 : 0.85) : '#FFFFFF',
+    '--ok': '#6DBF8B', '--warn': accent, '--bad': '#E5786E',
+    '--shadow': dark ? 'rgba(0,0,0,.35)' : 'rgba(0,0,0,.1)',
+    '--moti-from': mixHex(card, accent, dark ? 0.16 : 0.14), '--moti-to': card, '--moti-border': mixHex(bg, accent, 0.3),
+    '--dashed': mixHex(bg, accent, 0.35),
+    '--shine': dark ? '#FFFFFF' : mixHex(accent, '#000000', 0.4),
+    'color-scheme': dark ? 'dark' : 'light',
+  };
+}
+
 function applyTheme() {
+  const root = document.documentElement;
+  // Сбрасываем переменные «своего цвета», если они были
+  for (const k of Object.keys(customVars('#000000', '#FFFFFF'))) root.style.removeProperty(k);
+  if (state.theme === 'custom') {
+    const c = state.customTheme;
+    c.vars = customVars(c.bg, c.accent);
+    for (const [k, v] of Object.entries(c.vars)) root.style.setProperty(k, v);
+    root.dataset.theme = 'custom';
+    document.querySelector('meta[name=theme-color]').content = c.bg;
+    return;
+  }
   const t = THEMES.find(x => x.id === state.theme) || THEMES[0];
-  if (t.id === 'navy') delete document.documentElement.dataset.theme;
-  else document.documentElement.dataset.theme = t.id;
+  if (t.id === 'navy') delete root.dataset.theme;
+  else root.dataset.theme = t.id;
   document.querySelector('meta[name=theme-color]').content = t.colors[0];
 }
 
@@ -765,8 +806,48 @@ function renderThemes() {
       <span class="theme-name">${t.name}</span>
       <span class="theme-dots">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</span>
     </button>`;
-  }).join('');
+  }).join('') + customCard(cur === 'custom');
+  renderCustomEditor();
 }
+
+function customCard(on) {
+  const c = state.customTheme;
+  const v = customVars(c.bg, c.accent);
+  const line = luma(c.bg) < 0.35 ? 'rgba(255,255,255,.18)' : 'rgba(0,0,0,.08)';
+  return `<button type="button" class="theme-card ${on ? 'on' : ''}" data-theme-id="custom">
+    <span class="theme-prev" style="background:${c.bg}">
+      <i style="background:${line}"></i><i style="background:${v['--card']}"></i><i style="background:${line};width:40%"></i>
+      <b style="background:${c.accent}"></b><em class="theme-custom-badge">🎨</em>
+    </span>
+    <span class="theme-name">Свой цвет</span>
+    <span class="theme-dots"><span style="background:${c.bg}"></span><span style="background:${v['--card']}"></span><span style="background:${c.accent}"></span></span>
+  </button>`;
+}
+
+function renderCustomEditor() {
+  const on = state.theme === 'custom';
+  $('#custom-theme').hidden = !on;
+  if (!on) return;
+  const c = state.customTheme;
+  $('#ct-bg').value = c.bg.toLowerCase();
+  $('#ct-accent').value = c.accent.toLowerCase();
+  const sw = (list, cur, kind) => list.map(x =>
+    `<button type="button" class="ct-sw${x.toLowerCase() === cur.toLowerCase() ? ' on' : ''}" data-${kind}="${x}" style="background:${x}" aria-label="${x}"></button>`).join('');
+  $('#ct-bg-sw').innerHTML = sw(CUSTOM_BG, c.bg, 'bg');
+  $('#ct-accent-sw').innerHTML = sw(CUSTOM_ACCENT, c.accent, 'accent');
+}
+
+function setCustom(part, value) {
+  state.customTheme[part] = value.toUpperCase();
+  state.theme = 'custom';
+  applyTheme();
+  save();
+  renderThemes();
+}
+$('#ct-bg').addEventListener('input', e => setCustom('bg', e.target.value));
+$('#ct-accent').addEventListener('input', e => setCustom('accent', e.target.value));
+$('#ct-bg-sw').addEventListener('click', e => { if (e.target.dataset.bg) { setCustom('bg', e.target.dataset.bg); buzz(); } });
+$('#ct-accent-sw').addEventListener('click', e => { if (e.target.dataset.accent) { setCustom('accent', e.target.dataset.accent); buzz(); } });
 
 $('#themes').addEventListener('click', e => {
   const b = e.target.closest('[data-theme-id]');

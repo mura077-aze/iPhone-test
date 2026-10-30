@@ -17,7 +17,13 @@
   <link rel="stylesheet" href="style.css">
   <script>
     // Тема ставится до отрисовки, чтобы не мигал цвет по умолчанию
-    try { var t = (JSON.parse(localStorage.getItem('dela-v1')) || {}).theme; if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    try {
+      var st = JSON.parse(localStorage.getItem('dela-v1')) || {}, t = st.theme;
+      if (t) document.documentElement.dataset.theme = t;
+      if (t === 'custom' && st.customTheme && st.customTheme.vars) {
+        for (var k in st.customTheme.vars) document.documentElement.style.setProperty(k, st.customTheme.vars[k]);
+      }
+    } catch (e) {}
   </script>
   <title>Дела</title>
 </head>
@@ -152,6 +158,19 @@
 
       <h3 class="sub">Оформление</h3>
       <div class="themes" id="themes"></div>
+      <div class="custom-theme" id="custom-theme" hidden>
+        <div class="ct-row">
+          <span class="ct-label">Фон</span>
+          <label class="ct-pick"><input type="color" id="ct-bg"><span>Палитра</span></label>
+        </div>
+        <div class="ct-swatches" id="ct-bg-sw"></div>
+        <div class="ct-row">
+          <span class="ct-label">Акцент — кнопки и выделение</span>
+          <label class="ct-pick"><input type="color" id="ct-accent"><span>Палитра</span></label>
+        </div>
+        <div class="ct-swatches" id="ct-accent-sw"></div>
+        <p class="hint">Остальные оттенки — карточки, текст, линии — приложение подберёт само, чтобы всё читалось.</p>
+      </div>
 
       <h3 class="sub">История</h3>
       <ul class="list" id="moti-history"></ul>
